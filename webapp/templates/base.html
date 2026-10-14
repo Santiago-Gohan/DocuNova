@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}DocuNova{% endblock %} · DocuNova</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='3') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='4') }}">
 </head>
 <body>
   <header class="barra">
@@ -56,38 +56,31 @@
 
   {% if usuario %}
   <div id="tour" class="tour" hidden data-imgbase="{{ url_for('static', filename='tour/') }}">
-    <div id="tour-caja" class="tour-caja">
+    <div class="tour-personaje">
+      <img id="tour-img" class="tour-img" alt="">
+      <span id="tour-emoji" class="tour-emoji"></span>
+    </div>
+    <div class="tour-burbuja">
       <button id="tour-cerrar" class="tour-cerrar" type="button" aria-label="Cerrar">&times;</button>
-      <div class="tour-escenario">
-        <span class="tour-estrella"></span>
-        <img id="tour-img" class="tour-img" alt="">
-        <span id="tour-emoji" class="tour-emoji"></span>
-      </div>
-      <div class="tour-panel">
-        <span id="tour-quien" class="tour-quien">Guía</span>
-        <h3 id="tour-titulo" class="tour-titulo"></h3>
-        <p id="tour-texto" class="tour-texto"></p>
-        <div class="tour-pie">
-          <span id="tour-paso" class="tour-paso"></span>
-          <div id="tour-nav" class="tour-nav">
-            <button id="tour-atras" class="boton seco mini" type="button">Atrás</button>
-            <button id="tour-sig" class="boton mini" type="button">Siguiente</button>
-          </div>
+      <span id="tour-quien" class="tour-quien">Guía</span>
+      <h3 id="tour-titulo" class="tour-titulo"></h3>
+      <p id="tour-texto" class="tour-texto"></p>
+      <div class="tour-pie">
+        <span id="tour-paso" class="tour-paso"></span>
+        <div id="tour-nav" class="tour-nav">
+          <button id="tour-atras" class="boton seco mini" type="button">Atrás</button>
+          <button id="tour-sig" class="boton mini" type="button">Siguiente</button>
         </div>
-        <div id="tour-intro" class="tour-intro" style="display:none">
-          <button id="tour-experto" class="boton seco mini" type="button">¡Ya soy un experto!</button>
-          <button id="tour-maestro" class="boton mini" type="button">¡Enséñame, Maestro!</button>
-        </div>
-        <div id="tour-puntos" class="tour-puntos"></div>
-        <button id="tour-saltar" class="tour-saltar" type="button"
-                style="border:none;background:none;color:#64748b;font-size:12px;cursor:pointer;align-self:center">
-          Saltar recorrido
-        </button>
       </div>
+      <div id="tour-intro" class="tour-intro" style="display:none">
+        <button id="tour-experto" class="boton seco mini" type="button">¡Ya soy un experto!</button>
+        <button id="tour-maestro" class="boton mini" type="button">¡Enséñame, Maestro!</button>
+      </div>
+      <div id="tour-puntos" class="tour-puntos"></div>
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='tour.js', v='3') }}"></script>
+  <script src="{{ url_for('static', filename='tour.js', v='4') }}"></script>
   <button id="tour-fab" class="tour-fab" type="button"
           onclick="window.abrirTour && window.abrirTour();">🐉 Guía</button>
   {% endif %}
