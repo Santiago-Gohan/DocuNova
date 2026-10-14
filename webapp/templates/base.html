@@ -26,7 +26,6 @@
           <a class="admin" href="{{ url_for('admin') }}">Admin</a>
         {% endif %}
         <span class="sep"></span>
-        <a href="#" class="tour-boton" onclick="window.abrirTour && window.abrirTour(0); return false;">¿Cómo funciona?</a>
         <a href="{{ url_for('perfil') }}" class="usuario">{{ usuario.nombre or usuario.usuario }}
           <span class="badge {{ usuario.rol }}">{{ usuario.rol }}</span></a>
         <a class="salir" href="{{ url_for('logout') }}">Salir</a>
