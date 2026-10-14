@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Mi perfil{% endblock %}
+{% block cuerpo %}
+<h1>Mi perfil</h1>
+<p class="sub">Rol: <span class="badge {{ usuario.rol }}">{{ usuario.rol }}</span></p>
+
+<div class="dos-col">
+  <div class="tarjeta">
+    <h2>Datos</h2>
+    <form method="post">
+      <input type="hidden" name="accion" value="datos">
+      <label>Nombre</label>
+      <input type="text" name="nombre" value="{{ usuario.nombre or '' }}">
+      <label>Correo</label>
+      <input type="email" name="email" value="{{ usuario.email }}">
+      <label>Usuario (no se puede cambiar)</label>
+      <input type="text" value="{{ usuario.usuario }}" disabled>
+      <button class="boton" type="submit">Guardar</button>
+    </form>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Cambiar contraseña</h2>
+    <form method="post">
+      <input type="hidden" name="accion" value="clave">
+      <label>Contraseña actual</label>
+      <input type="password" name="actual" required>
+      <label>Nueva contraseña</label>
+      <input type="password" name="nueva" required>
+      <button class="boton" type="submit">Cambiar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Mis documentos{% endblock %}
+{% block cuerpo %}
+{% if objetivo %}
+  <h1>Carpeta de {{ objetivo.nombre or objetivo.usuario }}</h1>
+  <p class="sub"><span class="badge {{ objetivo.rol }}">{{ objetivo.rol }}</span> · Vista de administrador</p>
+{% else %}
+  <h1>Mis documentos</h1>
+  <p class="sub">Tu carpeta privada: solo tú puedes ver estos archivos.</p>
+{% endif %}
+
+{% if not objetivo %}
+<div class="tarjeta">
+  <h2>Subir documentos</h2>
+  <form method="post" action="{{ url_for('mis_documentos_subir') }}" enctype="multipart/form-data">
+    <input type="file" name="documentos" multiple required
+           accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp">
+    <button class="boton" type="submit">Subir a mi carpeta</button>
+    <p class="nota">Al subirlos se detecta automáticamente el tipo de documento (OCR local en español).</p>
+  </form>
+</div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>Archivos ({{ total }}) · {{ (usado / 1024)|round(1) }} KB</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Archivo</th><th>Tipo detectado</th><th>Conf.</th><th>Tamaño</th><th>Subido</th><th>Acciones</th></tr>
+    {% for d in docs %}
+    <tr>
+      <td>{{ d.nombre }}</td>
+      <td>{% if d.tipo %}<span class="pill">{{ d.tipo }}</span>{% else %}<span class="pill gris">sin clasificar</span>{% endif %}</td>
+      <td>{{ d.conf or '—' }}</td>
+      <td>{{ ((d.tam or 0) / 1024)|round(1) }} KB</td>
+      <td>{{ d.subido }}</td>
+      <td>
+        <div class="acciones">
+          <a class="boton mini seco" href="{{ url_for('mis_documentos_descargar', doc_id=d.id) }}">Descargar</a>
+          <form method="post" action="{{ url_for('mis_documentos_borrar', doc_id=d.id) }}"
+                onsubmit="return confirm('¿Eliminar {{ d.nombre }}?');">
+            <button class="boton mini rojo" type="submit">Borrar</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="nota">Todavía no has subido documentos.</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endblock %}

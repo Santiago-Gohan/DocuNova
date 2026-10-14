@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Mi PC{% endblock %}
+{% block cuerpo %}
+<h1>Explorar mi computadora</h1>
+<p class="sub">Solo administradores. Escribe la ruta de una carpeta de este equipo para ver su contenido.</p>
+
+<div class="tarjeta">
+  <form method="post" class="fila-botones">
+    <input type="text" name="ruta" style="flex:1;width:auto" value="{{ ruta }}"
+           placeholder="C:\Users\SANTIAGO\Documents">
+    <button class="boton" type="submit" style="margin:0">Abrir</button>
+  </form>
+  {% if error %}<p class="nota" style="color:var(--err)">{{ error }}</p>{% endif %}
+</div>
+
+{% if entradas %}
+<div class="tarjeta">
+  <h2>{{ ruta }}</h2>
+  <table>
+    <tr><th></th><th>Nombre</th><th>Tamaño</th></tr>
+    {% for e in entradas %}
+    <tr>
+      <td style="width:40px">{% if e.dir %}📁{% else %}📄{% endif %}</td>
+      <td>{{ e.nombre }}</td>
+      <td>{% if e.dir %}—{% else %}{{ (e.tam / 1024)|round(1) }} KB{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<div class="tarjeta">
+  <h2>¿Para qué sirve?</h2>
+  <p class="nota">Esta vista te deja confirmar rutas de carpetas de tu equipo (por ejemplo, dónde guardar los documentos separados). Para procesarlas, usa las herramientas con la opción de subir archivos.</p>
+</div>
+{% endblock %}

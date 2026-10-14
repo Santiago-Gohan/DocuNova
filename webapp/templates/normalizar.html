@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Normalizar{% endblock %}
+{% block cuerpo %}
+<h1>Normalizar carpetas y archivos</h1>
+<p class="sub">Sube un ZIP con carpetas/archivos y los devuelve renombrados al formato elegido.</p>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="tarjeta">
+    <label>Archivo ZIP</label>
+    <input type="file" name="zip" accept=".zip" required>
+    <label>Formato de nombres</label>
+    <select name="modo">
+      <option value="upper">MAYÚSCULAS</option>
+      <option value="lower">minúsculas</option>
+      <option value="title">Tipo Título</option>
+    </select>
+    <button class="boton" type="submit">Normalizar y descargar</button>
+  </div>
+</form>
+
+<div class="tarjeta">
+  <h2>Cómo preparar el ZIP</h2>
+  <p>Comprime la carpeta que quieras normalizar (clic derecho → Enviar a → Carpeta comprimida). Sube ese .ZIP y recibirás otro con los nombres corregidos.</p>
+</div>
+{% endblock %}

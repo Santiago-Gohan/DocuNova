@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Organizador{% endblock %} · Organizador de Documentos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <span class="logo">OD</span>
+      <span>Organizador de Documentos</span>
+    </div>
+    <nav>
+      {% if usuario %}
+        <a href="{{ url_for('dashboard') }}">Inicio</a>
+        <a href="{{ url_for('mis_documentos') }}">Mis documentos</a>
+        <a href="{{ url_for('herramienta_convertir') }}">Convertir</a>
+        <a href="{{ url_for('herramienta_crear') }}">Estructura</a>
+        <a href="{{ url_for('herramienta_clasificar') }}">Clasificar</a>
+        <a href="{{ url_for('herramienta_separar') }}">Separar PDF</a>
+        {% if usuario.rol == 'admin' %}
+          <a href="{{ url_for('local') }}">Mi PC</a>
+          <a class="admin" href="{{ url_for('admin') }}">Admin</a>
+        {% endif %}
+        <span class="sep"></span>
+        <a href="{{ url_for('perfil') }}" class="usuario">{{ usuario.nombre or usuario.usuario }}
+          <span class="badge {{ usuario.rol }}">{{ usuario.rol }}</span></a>
+        <a class="salir" href="{{ url_for('logout') }}">Salir</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Entrar</a>
+        <a href="{{ url_for('registro') }}">Registrarse</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="contenido">
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% if mensajes %}
+        <div class="avisos">
+          {% for cat, m in mensajes %}
+            <div class="aviso {{ cat }}">{{ m }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block cuerpo %}{% endblock %}
+  </main>
+
+  <footer class="pie">
+    Sistema local de gestión documental · Los datos se procesan en este equipo
+  </footer>
+</body>
+</html>

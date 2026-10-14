@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Datos locales / privados (NUNCA subir)
+*.db
+webapp/datos/
+webapp/trabajos/*
+!webapp/trabajos/.gitkeep
+clave_secreta.txt
+
+# OCR: el idioma se descarga con descargar_idioma.py
+tessdata/*.traineddata
+
+# Archivos generados
+*.zip
+*.log
+
+# Entorno virtual
+venv/
+.venv/
+entorno/

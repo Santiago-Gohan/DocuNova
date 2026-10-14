@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Clasificar{% endblock %}
+{% block cuerpo %}
+<h1>Clasificar documentos</h1>
+<p class="sub">Sube uno o varios PDF o imágenes. El sistema detecta el tipo y los renombra.</p>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="tarjeta">
+    <label>Documentos (puedes seleccionar varios)</label>
+    <input type="file" name="documentos" multiple required
+           accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp">
+    <label>Formato del nuevo nombre</label>
+    <select name="modo">
+      <option value="upper">MAYÚSCULAS</option>
+      <option value="lower">minúsculas</option>
+      <option value="title">Tipo Título</option>
+    </select>
+    <button class="boton" type="submit">Clasificar</button>
+  </div>
+</form>
+
+{% if resultados %}
+<div class="tarjeta">
+  <h2>Resultados ({{ resultados|length }})</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Archivo subido</th><th>Tipo detectado</th><th>Confianza</th><th>Nuevo nombre</th></tr>
+    {% for r in resultados %}
+    <tr>
+      <td>{{ r.archivo }}</td>
+      <td>{% if r.ok %}<span class="pill">{{ r.tipo }}</span>{% else %}<span class="pill rojo">{{ r.tipo }}</span>{% endif %}</td>
+      <td>{{ r.conf }}</td>
+      <td><b>{{ r.nuevo }}</b></td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% if zip_listo %}
+    <a class="boton" href="{{ url_for('descargar', nombre='documentos_clasificados.zip') }}">Descargar ZIP con los documentos</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

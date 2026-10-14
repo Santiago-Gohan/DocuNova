@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}Administración{% endblock %}
+{% block cuerpo %}
+<h1>Panel de administrador</h1>
+<p class="sub">Gestiona los usuarios, sus roles y revisa la actividad.</p>
+
+<div class="tarjeta">
+  <h2>Usuarios ({{ usuarios|length }})</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th></tr>
+    {% for u in usuarios %}
+    <tr>
+      <td><b>{{ u.usuario }}</b>{% if u.id == usuario.id %} <span class="pill gris">tú</span>{% endif %}</td>
+      <td>{{ u.nombre }}</td>
+      <td>{{ u.email }}</td>
+      <td><span class="badge {{ u.rol }}">{{ u.rol }}</span></td>
+      <td>{% if u.activo %}<span class="pill ok">activo</span>{% else %}<span class="pill rojo">inactivo</span>{% endif %}</td>
+      <td>{{ u.ultimo_acceso or '—' }}</td>
+      <td>
+        <div class="acciones">
+          <a class="boton mini seco" href="{{ url_for('admin_documentos', uid=u.id) }}">Documentos</a>
+          {% if u.id != usuario.id %}
+            <form method="post" action="{{ url_for('admin_rol', uid=u.id) }}">
+              <button class="boton mini seco" type="submit">{{ 'Quitar admin' if u.rol == 'admin' else 'Hacer admin' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_activo', uid=u.id) }}">
+              <button class="boton mini seco" type="submit">{{ 'Desactivar' if u.activo else 'Activar' }}</button>
+            </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('admin_clave', uid=u.id) }}"
+                onsubmit="this.clave.value=prompt('Nueva contraseña para {{ u.usuario }}:');return this.clave.value && this.clave.value.length>=6;">
+            <input type="hidden" name="clave">
+            <button class="boton mini seco" type="submit">Resetear clave</button>
+          </form>
+          {% if u.id != usuario.id %}
+            <form method="post" action="{{ url_for('admin_eliminar', uid=u.id) }}"
+                  onsubmit="return confirm('¿Eliminar definitivamente a {{ u.usuario }}?');">
+              <button class="boton mini rojo" type="submit">Eliminar</button>
+            </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+
+<div class="tarjeta">
+  <h2>Crear usuario</h2>
+  <form method="post" action="{{ url_for('admin_crear') }}" class="grid" style="grid-template-columns:1fr 1fr">
+    <div><label>Nombre</label><input type="text" name="nombre"></div>
+    <div><label>Usuario</label><input type="text" name="usuario" required></div>
+    <div><label>Correo</label><input type="email" name="email" required></div>
+    <div><label>Contraseña</label><input type="text" name="clave" required></div>
+    <div><label>Rol</label>
+      <select name="rol"><option value="usuario">usuario</option><option value="admin">admin</option></select>
+    </div>
+    <div style="display:flex;align-items:flex-end"><button class="boton" type="submit">Crear</button></div>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <h2>Actividad reciente</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr>
+    {% for a in actividad %}
+    <tr><td>{{ a.fecha }}</td><td>{{ a.usuario }}</td><td>{{ a.accion }}</td><td>{{ a.detalle }}</td></tr>
+    {% else %}
+    <tr><td colspan="4" class="nota">Sin actividad todavía.</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Crear estructura{% endblock %}
+{% block cuerpo %}
+<h1>Crear estructura de carpetas</h1>
+<p class="sub">Se genera un ZIP con una carpeta por estudiante y sus documentos.</p>
+
+<form method="post">
+  <div class="tarjeta">
+    <label>Estudiantes (una línea: Nombre Apellido, Numero, S/N si es menor)</label>
+    <textarea name="estudiantes" placeholder="Santiago Barrera, 1031649321, N&#10;Juan Perez, 1020304050, S"></textarea>
+    <p class="nota">Formato: <code>Nombre Apellido, NúmeroDeDocumento, S</code> (S = menor de edad; se agregan los docs 005, 006 y 007).</p>
+    <label>Formato de nombres</label>
+    <select name="modo">
+      <option value="upper">MAYÚSCULAS</option>
+      <option value="lower">minúsculas</option>
+      <option value="title">Tipo Título</option>
+    </select>
+    <button class="boton" type="submit">Generar y descargar ZIP</button>
+  </div>
+</form>
+
+<div class="tarjeta">
+  <h2>Documentos que se crean</h2>
+  <table>
+    <tr><th>N.º</th><th>Documento</th><th>Cuándo</th></tr>
+    {% for num, nombre, menores in docs %}
+    <tr><td>{{ num }}</td><td>{{ nombre }}</td><td>{% if menores %}<span class="pill">solo menores</span>{% else %}todos{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

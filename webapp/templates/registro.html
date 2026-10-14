@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Registro{% endblock %}
+{% block cuerpo %}
+<div class="centro">
+  <div class="tarjeta">
+    <h1>Crear cuenta</h1>
+    {% if primero %}
+      <p class="sub">No hay usuarios todavía. <b>El primero en registrarse será el administrador.</b></p>
+    {% else %}
+      <p class="sub">Regístrate para usar las herramientas.</p>
+    {% endif %}
+    <form method="post">
+      <label>Nombre completo</label>
+      <input type="text" name="nombre" placeholder="Santiago Barrera">
+      <label>Usuario</label>
+      <input type="text" name="usuario" required pattern="[A-Za-z0-9_.\-]{3,30}" placeholder="santiago">
+      <label>Correo</label>
+      <input type="email" name="email" required placeholder="correo@ejemplo.com">
+      <label>Contraseña (mínimo 6)</label>
+      <input type="password" name="clave" required>
+      <label>Repite la contraseña</label>
+      <input type="password" name="clave2" required>
+      <button class="boton" type="submit">Crear cuenta</button>
+    </form>
+    <p class="nota">¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Entra aquí</a></p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Separar PDF{% endblock %}
+{% block cuerpo %}
+<h1>Separar un PDF grande</h1>
+<p class="sub">Sube un PDF que contenga varios documentos y el sistema los separa por tipo.</p>
+
+{% if not analizado %}
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="accion" value="analizar">
+  <div class="tarjeta">
+    <label>PDF con todos los documentos</label>
+    <input type="file" name="pdf" accept=".pdf" required>
+    <button class="boton" type="submit">Analizar páginas</button>
+    <p class="nota">Si el PDF está escaneado, el análisis puede tardar (se aplica OCR página por página).</p>
+  </div>
+</form>
+{% else %}
+<div class="tarjeta">
+  <h2>Resumen</h2>
+  <p>{{ total_pag }} páginas · {{ grupos|length }} documentos detectados.</p>
+  <form method="post">
+    <input type="hidden" name="accion" value="separar">
+    <label>Formato del nombre</label>
+    <select name="modo">
+      <option value="upper">MAYÚSCULAS</option>
+      <option value="lower">minúsculas</option>
+      <option value="title">Tipo Título</option>
+    </select>
+    <button class="boton" type="submit">Separar y descargar ZIP</button>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <h2>Cortes detectados</h2>
+  <table>
+    <tr><th>#</th><th>Páginas</th><th>Documento</th><th>Confianza</th></tr>
+    {% for g in grupos %}
+    <tr><td>{{ g.n }}</td><td>{{ g.rango }}</td><td>{{ g.tipo }}</td><td>{{ g.conf }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="tarjeta">
+  <h2>Detalle por página</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Pág.</th><th>Tipo detectado</th><th>Conf.</th><th>Primera línea</th></tr>
+    {% for p in paginas %}
+    <tr><td>{{ p.pagina }}</td><td>{{ p.tipo or 'sin identificar' }}</td><td>{{ p.conf or '-' }}</td><td>{{ p.inicio }}</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

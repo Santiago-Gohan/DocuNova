@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Convertir texto{% endblock %}
+{% block cuerpo %}
+<h1>Convertir texto</h1>
+<p class="sub">Escribe un nombre por línea. Verás el resultado en los 3 formatos.</p>
+
+<form method="post">
+  <div class="tarjeta">
+    <label>Texto (una línea por nombre)</label>
+    <textarea name="texto" placeholder="Santiago Barrera&#10;juan perez gomez"></textarea>
+    <button class="boton" type="submit">Convertir</button>
+  </div>
+</form>
+
+{% if resultado %}
+<div class="tarjeta">
+  <h2>Resultado</h2>
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+    <div>
+      <label>MAYÚSCULAS</label>
+      <div class="salida">{% for l in resultado.upper %}{{ l.token }}
+{% endfor %}</div>
+      <p class="nota">Como texto: {% for l in resultado.upper %}{{ l.texto }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    </div>
+    <div>
+      <label>minúsculas</label>
+      <div class="salida">{% for l in resultado.lower %}{{ l.token }}
+{% endfor %}</div>
+      <p class="nota">Como texto: {% for l in resultado.lower %}{{ l.texto }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    </div>
+    <div>
+      <label>Tipo Título</label>
+      <div class="salida">{% for l in resultado.title %}{{ l.token }}
+{% endfor %}</div>
+      <p class="nota">Como texto: {% for l in resultado.title %}{{ l.texto }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,103 @@
+========================================================================
+  ORGANIZADOR DE DOCUMENTOS - VERSION WEB
+  Instrucciones de uso
+========================================================================
+
+QUE ES
+------
+Una pagina web que corre en tu computadora. Varias personas pueden
+entrar con su propio usuario, y tu eres el ADMINISTRADOR (puedes ver,
+crear, eliminar usuarios y cambiarles el rol).
+
+TRAE LAS MISMAS HERRAMIENTAS QUE LA APP DE ESCRITORIO:
+  1. Convertir texto (MAYUSCULAS / minusculas / Tipo Titulo)
+  2. Crear estructura de carpetas -> descarga un ZIP
+  3. Normalizar nombres (subes un ZIP, lo devuelve corregido)
+  4. Clasificar documentos (detecta el tipo con OCR, en espanol)
+  5. Separar un PDF grande en documentos sueltos
+
+Todo se procesa EN TU EQUIPO. Los documentos no se suben a ningun
+servicio externo (solo los ven quienes tengan acceso a la pagina).
+
+
+COMO ENCENDERLA
+---------------
+1. Haz doble clic en:  INICIAR_WEB.bat
+2. Se abrira el navegador en:  http://127.0.0.1:5000
+3. La primera vez, registrate:  el PRIMER usuario creado es ADMIN.
+4. Para apagarla: cierra la ventana negra del servidor.
+
+
+LA PRIMERA VEZ (crear tu cuenta de admin)
+-----------------------------------------
+- Entra a "Registrarse".
+- Llena tus datos (usuario, correo, contrasena de 6+ caracteres).
+- Como no hay usuarios todavia, tu cuenta sera ADMIN automaticamente.
+- Luego puedes crear/eliminar usuarios desde el boton "Admin".
+
+
+COMO DEJARLA DISPONIBLE EN TU RED LOCAL (celular, otra PC)
+----------------------------------------------------------
+1. Averigua tu IP: abre CMD y escribe:  ipconfig
+   Busca "Direccion IPv4", algo como 192.168.1.25
+2. En el otro dispositivo abre:  http://192.168.1.25:5000
+3. Si no abre, permite "Python" o el "puerto 5000" en el Firewall
+   de Windows cuando aparezca el aviso.
+
+
+COMO DEJARLA DISPONIBLE DESDE INTERNET (cualquier lugar)
+--------------------------------------------------------
+Lo mas facil y seguro es usar un "tunel", porque NO tienes que tocar
+el router y te da un enlace con HTTPS. Elige UNA opcion:
+
+OPCION A - Cloudflare Tunnel (gratis, no necesita cuenta)
+  1. Descarga cloudflared para Windows desde:
+     https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+  2. Deja el servidor encendido (INICIAR_WEB.bat).
+  3. En otra ventana CMD escribe:
+         cloudflared tunnel --url http://localhost:5000
+  4. Te dara un enlace tipo https://algo-algo.trycloudflare.com
+     Ese enlace lo puedes abrir desde cualquier lugar / compartir.
+
+OPCION B - ngrok (gratis, requiere cuenta)
+  1. Descarga ngrok desde https://ngrok.com/download
+  2. Crea una cuenta gratis y copia tu "authtoken":
+         ngrok config add-authtoken TU_TOKEN
+  3. Con el servidor encendido:
+         ngrok http 5000
+  4. Usa el enlace https que muestra (termina en .ngrok-free.app).
+
+IMPORTANTE: mientras el tunel este abierto, cualquiera con el enlace
+puede ver la pagina de login. Usa contrasenas fuertes.
+
+
+SEGURIDAD (recomendaciones)
+---------------------------
+- Cambia la contrasena del admin en "Mi perfil".
+- No compartas el enlace publico mas de lo necesario.
+- Cierra el tunel (Ctrl+C) y el servidor cuando termines.
+- Los usuarios "usuario" NO pueden ver ni tocar archivos de tu PC;
+  solo el admin puede usar "Mi PC".
+
+
+ARCHIVOS DEL PROYECTO
+---------------------
+webapp\app.py            -> el servidor web
+webapp\db.py             -> usuarios y base de datos (organizador.db)
+webapp\templates\        -> paginas HTML
+webapp\static\style.css  -> estilos
+webapp\trabajos\         -> archivos temporales de cada sesion
+webapp\organizador.db    -> base de datos de usuarios (se crea sola)
+webapp\clave_secreta.txt -> clave interna de sesiones (no borrar)
+
+
+PROBLEMAS COMUNES
+-----------------
+- "No se encontro Python": instala Python desde python.org y marca
+  "Add Python to PATH".
+- El puerto 5000 ocupado: cierra otras apps o edita app.py y cambia
+  port=5000 por port=5050 (tambien en INICIAR_WEB.bat la url).
+- El OCR no detecta nada: verifica que exista
+  organizador_documentos\tessdata\spa.traineddata
+- No cargan los archivos: usa PDF/imagenes claros (no borrosos).
+========================================================================

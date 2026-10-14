@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar{% endblock %}
+{% block cuerpo %}
+<div class="centro">
+  <div class="tarjeta">
+    <h1>Iniciar sesión</h1>
+    <p class="sub">Accede a tus herramientas de documentos.</p>
+    <form method="post">
+      <label>Usuario o correo</label>
+      <input type="text" name="usuario" autofocus required>
+      <label>Contraseña</label>
+      <input type="password" name="clave" required>
+      <button class="boton" type="submit">Entrar</button>
+    </form>
+    <p class="nota">¿No tienes cuenta? <a href="{{ url_for('registro') }}">Regístrate</a></p>
+  </div>
+</div>
+{% endblock %}

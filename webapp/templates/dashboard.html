@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Inicio{% endblock %}
+{% block cuerpo %}
+<h1>Hola, {{ usuario.nombre or usuario.usuario }}</h1>
+<p class="sub">Elige una herramienta para trabajar con tus documentos.</p>
+
+<div class="grid">
+  <a class="herramienta" href="{{ url_for('herramienta_convertir') }}">
+    <span class="ico">Aa</span><b>Convertir texto</b>
+    <span>MAYÚSCULAS, minúsculas o Tipo Título</span>
+  </a>
+  <a class="herramienta" href="{{ url_for('herramienta_crear') }}">
+    <span class="ico">📁</span><b>Crear estructura</b>
+    <span>Carpetas por estudiante con nomenclatura</span>
+  </a>
+  <a class="herramienta" href="{{ url_for('herramienta_clasificar') }}">
+    <span class="ico">🔎</span><b>Clasificar documentos</b>
+    <span>Detecta el tipo y los renombra</span>
+  </a>
+  <a class="herramienta" href="{{ url_for('herramienta_separar') }}">
+    <span class="ico">✂️</span><b>Separar PDF grande</b>
+    <span>Un PDF con todo → documentos sueltos</span>
+  </a>
+</div>
+
+<div class="tarjeta" style="margin-top:20px">
+  <h2>Estado del sistema</h2>
+  <p>Tipo de documentos configurados: <span class="pill">{{ n_docs }}</span>
+     &nbsp; Lectura OCR en español:
+     {% if ocr %}<span class="pill ok">activa</span>{% else %}<span class="pill rojo">no disponible</span>{% endif %}
+  </p>
+  <p class="nota">Todo el procesamiento ocurre en este equipo. Los documentos con datos personales no se envían a internet.</p>
+</div>
+{% endblock %}
