@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}DocuNova{% endblock %} · DocuNova</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='3') }}">
 </head>
 <body>
   <header class="barra">
@@ -87,7 +87,7 @@
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='tour.js') }}"></script>
+  <script src="{{ url_for('static', filename='tour.js', v='3') }}"></script>
   <button id="tour-fab" class="tour-fab" type="button"
           onclick="window.abrirTour && window.abrirTour();">🐉 Guía</button>
   {% endif %}
