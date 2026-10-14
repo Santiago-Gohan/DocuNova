@@ -13,6 +13,7 @@ import zipfile
 import shutil
 import secrets
 import functools
+import threading
 from datetime import datetime
 
 from flask import (Flask, render_template, request, redirect, url_for, session,
@@ -60,12 +61,17 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 db.inicializar()
 
-# En servidores donde no haya idioma OCR, se intenta descargar al arrancar
-try:
-    if not intel.idioma_instalado():
-        intel.asegurar_idioma()
-except Exception:
-    pass
+# En servidores donde no haya idioma OCR, se intenta descargar en segundo
+# plano (sin bloquear el arranque ni las peticiones web).
+def _preparar_ocr():
+    try:
+        if not intel.idioma_instalado():
+            intel.asegurar_idioma()
+    except Exception:
+        pass
+
+
+threading.Thread(target=_preparar_ocr, daemon=True).start()
 
 
 # ----------------------------------------------------------------------
@@ -156,6 +162,11 @@ def carpeta_usuario(uid):
 # ----------------------------------------------------------------------
 # Autenticacion
 # ----------------------------------------------------------------------
+@app.route("/salud")
+def salud():
+    return "ok", 200
+
+
 @app.route("/")
 def index():
     if usuario_actual():

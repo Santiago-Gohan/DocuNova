@@ -3,7 +3,7 @@ services:
     name: docunova
     runtime: docker
     plan: free
-    healthCheckPath: /login
+    healthCheckPath: /salud
     envVars:
       - key: ENTORNO
         value: produccion
