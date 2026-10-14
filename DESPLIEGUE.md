@@ -60,10 +60,36 @@ y el idioma español del OCR automáticamente).
 | `ENTORNO` | Activa modo producción (desactiva "Mi PC") | `produccion` |
 | `ORGANIZADOR_CLAVE` | Clave de sesiones (seguridad) | texto largo aleatorio |
 | `PORT` | Puerto (lo pone el host solo) | `10000` |
+| `DATABASE_URL` | Cadena de Neon/PostgreSQL (si no, usa SQLite) | `postgresql://...` |
 | `ORGANIZADOR_DB` | Ruta de la base de datos | `/data/organizador.db` |
 | `ORGANIZADOR_DATOS` | Carpeta de documentos privados | `/data/datos` |
 | `ORGANIZADOR_TRABAJOS` | Carpeta de trabajos temporales | `/data/trabajos` |
 | `TESSERACT_CMD` | Ruta del binario de Tesseract (si es distinta) | `/usr/bin/tesseract` |
+
+---
+
+## Base de datos persistente con Neon (PostgreSQL)
+
+Por defecto DocuNova usa **SQLite** (se borra en cada redeploy). Para conservar los
+usuarios y documentos, usa **Neon** (PostgreSQL gratis):
+
+1. Crea una cuenta en **https://neon.tech** (puedes entrar con GitHub).
+2. Crea un **proyecto** (elige la región más cercana, p. ej. US East).
+3. Copia la **Connection string**. Usa la versión **Pooled** (la que lleva
+   `-pooler` en el host), que empieza así:
+   ```
+   postgresql://usuario:clave@ep-xxxx-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+4. En **Render** → tu servicio → **Environment** → **Add Environment Variable**:
+   - **Key:** `DATABASE_URL`
+   - **Value:** la cadena de Neon (pégala completa)
+5. Guarda → Render **redesplegará** automáticamente.
+6. Listo: al arrancar, la app crea las tablas sola. El **primer usuario** que se
+   registre será **admin**.
+
+> La cadena de Neon contiene una contraseña: trátala como un secreto y no la subas
+> al repositorio. En tu PC no hace falta Neon: si no existe `DATABASE_URL`, la app
+> usa SQLite automáticamente.
 
 ---
 

@@ -1,16 +1,76 @@
 # -*- coding: utf-8 -*-
-"""Base de datos de usuarios y actividad (SQLite)."""
+"""Base de datos de usuarios y actividad.
+
+Usa PostgreSQL (por ejemplo Neon) cuando existe la variable de entorno
+``DATABASE_URL``. Si no existe, usa SQLite local (archivo ``organizador.db``),
+para poder trabajar en el PC sin depender de internet.
+"""
 import os
 import sqlite3
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+
+# Neon entrega una cadena tipo: postgresql://usuario:clave@host/base?sslmode=require
+DATABASE_URL = (os.environ.get("DATABASE_URL")
+                or os.environ.get("NEON_DATABASE_URL") or "").strip()
+USA_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+
 DB_PATH = os.environ.get("ORGANIZADOR_DB") or os.path.join(BASE, "organizador.db")
+
+if USA_POSTGRES:
+    import psycopg2
+    import psycopg2.extras
+    from psycopg2 import IntegrityError as _Integridad
+
+    class _Cursor:
+        """Envoltorio minimo para imitar al cursor de sqlite3."""
+
+        def __init__(self, cur):
+            self._cur = cur
+
+        def fetchone(self):
+            return self._cur.fetchone()
+
+        def fetchall(self):
+            return self._cur.fetchall()
+
+    class _ConexionPG:
+        """Adapta psycopg2 a la interfaz usada por el resto del modulo."""
+
+        def __init__(self, dsn):
+            self._con = psycopg2.connect(dsn)
+
+        @staticmethod
+        def _traducir(sql):
+            return sql.replace("?", "%s")
+
+        def execute(self, sql, params=()):
+            cur = self._con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(self._traducir(sql), params)
+            return _Cursor(cur)
+
+        def executescript(self, script):
+            cur = self._con.cursor()
+            cur.execute(script)
+
+        def commit(self):
+            self._con.commit()
+
+        def rollback(self):
+            self._con.rollback()
+
+        def close(self):
+            self._con.close()
+else:
+    _Integridad = sqlite3.IntegrityError
 
 
 def conectar():
-    con = sqlite3.connect(DB_PATH)
+    if USA_POSTGRES:
+        return _ConexionPG(DATABASE_URL)
+    con = sqlite3.connect(DB_PATH, timeout=20)
     con.row_factory = sqlite3.Row
     return con
 
@@ -21,37 +81,70 @@ def ahora():
 
 def inicializar():
     con = conectar()
-    con.executescript("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario   TEXT UNIQUE NOT NULL,
-            email     TEXT UNIQUE NOT NULL,
-            nombre    TEXT,
-            clave     TEXT NOT NULL,
-            rol       TEXT NOT NULL DEFAULT 'usuario',
-            activo    INTEGER NOT NULL DEFAULT 1,
-            creado    TEXT,
-            ultimo_acceso TEXT
-        );
-        CREATE TABLE IF NOT EXISTS actividad (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER,
-            usuario    TEXT,
-            accion     TEXT,
-            detalle    TEXT,
-            fecha      TEXT
-        );
-        CREATE TABLE IF NOT EXISTS documentos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            nombre     TEXT,
-            guardado   TEXT,
-            tipo       TEXT,
-            conf       TEXT,
-            tam        INTEGER,
-            subido     TEXT
-        );
-    """)
+    if USA_POSTGRES:
+        con.executescript("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                usuario   TEXT UNIQUE NOT NULL,
+                email     TEXT UNIQUE NOT NULL,
+                nombre    TEXT,
+                clave     TEXT NOT NULL,
+                rol       TEXT NOT NULL DEFAULT 'usuario',
+                activo    INTEGER NOT NULL DEFAULT 1,
+                creado    TEXT,
+                ultimo_acceso TEXT
+            );
+            CREATE TABLE IF NOT EXISTS actividad (
+                id SERIAL PRIMARY KEY,
+                usuario_id INTEGER,
+                usuario    TEXT,
+                accion     TEXT,
+                detalle    TEXT,
+                fecha      TEXT
+            );
+            CREATE TABLE IF NOT EXISTS documentos (
+                id SERIAL PRIMARY KEY,
+                usuario_id INTEGER NOT NULL,
+                nombre     TEXT,
+                guardado   TEXT,
+                tipo       TEXT,
+                conf       TEXT,
+                tam        INTEGER,
+                subido     TEXT
+            );
+        """)
+    else:
+        con.executescript("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario   TEXT UNIQUE NOT NULL,
+                email     TEXT UNIQUE NOT NULL,
+                nombre    TEXT,
+                clave     TEXT NOT NULL,
+                rol       TEXT NOT NULL DEFAULT 'usuario',
+                activo    INTEGER NOT NULL DEFAULT 1,
+                creado    TEXT,
+                ultimo_acceso TEXT
+            );
+            CREATE TABLE IF NOT EXISTS actividad (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER,
+                usuario    TEXT,
+                accion     TEXT,
+                detalle    TEXT,
+                fecha      TEXT
+            );
+            CREATE TABLE IF NOT EXISTS documentos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                nombre     TEXT,
+                guardado   TEXT,
+                tipo       TEXT,
+                conf       TEXT,
+                tam        INTEGER,
+                subido     TEXT
+            );
+        """)
     con.commit()
     con.close()
 
@@ -74,7 +167,7 @@ def crear_usuario(usuario, email, clave, nombre=None, rol="usuario"):
         con.commit()
         uid = con.execute("SELECT id FROM usuarios WHERE usuario=?", (usuario.strip(),)).fetchone()["id"]
         return uid
-    except sqlite3.IntegrityError:
+    except _Integridad:
         return None
     finally:
         con.close()
@@ -123,7 +216,7 @@ def actualizar_perfil(uid, nombre, email):
                     (nombre.strip(), email.strip().lower(), uid))
         con.commit()
         return True
-    except sqlite3.IntegrityError:
+    except _Integridad:
         return False
     finally:
         con.close()
