@@ -1,18 +1,29 @@
-GUÍA DEL TOUR (DocuNova)
+GUIA DEL TOUR (DocuNova)
 ========================
 
-Coloca aquí las imágenes de los personajes con EXACTAMENTE estos nombres.
-Si una imagen no existe, el tour muestra un emoji en su lugar (no se rompe).
+Coloca aqui las imagenes de los personajes. El tour busca la imagen por el
+campo "id" de cada paso en tour.js, con estas extensiones en orden:
+   .png  ->  .jpg  ->  .jpeg  ->  .webp  ->  emoji (respaldo)
 
-  1_goku.png     (Bienvenida)
-  2_vegeta.png   (Estadísticas)
-  3_bulma.png    (Herramientas)
-  4_roshi.png    (Cierre del tour)
+Nombres usados por los pasos actuales:
+  1_goku.png       (Bienvenida)
+  2_vegeta.png     (Estadisticas)
+  3_bulma.png      (Herramientas)
+  4_krillin.png    (Clasifica tus documentos)
+  5_gohan.png      (Crea tu estructura)
+  6_personaje.png  (Cierre del tour)
+
+Para agregar mas pasos (hasta 10), edita el arreglo PASOS en tour.js y agrega
+un PNG con el mismo "id", por ejemplo: 7_personaje.png, 8_personaje.png, ...
 
 Recomendado:
 - PNG con fondo TRANSPARENTE (recorta al personaje, sin fondo).
 - Vertical, aproximadamente 900 x 1200 px.
 - Personaje de cuerpo completo mirando al espectador.
 
-Se muestran como capa flotante (esquina inferior izquierda) sobre la página.
-Los textos exactos de cada paso están en: ../../../PROMPTS_IMAGENES_TOUR.md
+Herramienta incluida: quitar_fondo.py (en la raiz del proyecto) genera PNG
+transparentes a partir de JPG con fondo claro:
+  python quitar_fondo.py "carpeta_origen" "webapp\static\tour" 38
+
+Se muestran como capa flotante (esquina inferior izquierda) sobre la pagina.
+Los textos exactos de cada paso estan en: ../../../PROMPTS_IMAGENES_TOUR.md
