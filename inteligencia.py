@@ -7,8 +7,11 @@ Lee PDF (capa de texto u OCR local) e identifica que tipo de documento es.
 import os
 import re
 import sys
+import shutil
+import tempfile
 import subprocess
 import unicodedata
+import urllib.request
 
 try:
     import pymupdf
@@ -16,18 +19,59 @@ except ImportError:
     import fitz as pymupdf
 
 # ----------------------------------------------------------------------
-# Rutas de Tesseract (OCR local)
+# Rutas de Tesseract (OCR local, funciona en Windows y Linux)
 # ----------------------------------------------------------------------
-TESS_EXE = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-TESSDATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tessdata")
-TMP = os.path.join(os.environ.get("TEMP", "."), "clasificador_tmp")
+def _buscar_tesseract():
+    ruta_env = os.environ.get("TESSERACT_CMD")
+    if ruta_env and os.path.isfile(ruta_env):
+        return ruta_env
+    if os.name == "nt":
+        for p in (r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                  r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                  os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")):
+            if os.path.isfile(p):
+                return p
+    else:
+        for p in ("/usr/bin/tesseract", "/usr/local/bin/tesseract"):
+            if os.path.isfile(p):
+                return p
+    return shutil.which("tesseract") or "tesseract"
+
+
+TESS_EXE = _buscar_tesseract()
+TESSDATA = os.environ.get("TESSDATA_PREFIX") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "tessdata")
+TMP = os.path.join(tempfile.gettempdir(), "docunova_tmp")
+
+URL_IDIOMA = "https://github.com/tesseract-ocr/tessdata_best/raw/main/spa.traineddata"
 
 EXT_IMAGEN = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 EXT_PDF = {".pdf"}
 
 
+def idioma_instalado():
+    return os.path.isfile(os.path.join(TESSDATA, "spa.traineddata"))
+
+
+def asegurar_idioma():
+    """Descarga spa.traineddata si falta (necesario en servidores)."""
+    if idioma_instalado():
+        return True
+    try:
+        os.makedirs(TESSDATA, exist_ok=True)
+        destino = os.path.join(TESSDATA, "spa.traineddata")
+        urllib.request.urlretrieve(URL_IDIOMA, destino)
+        return os.path.isfile(destino)
+    except Exception:
+        return False
+
+
+def _binario_ok():
+    return os.path.isfile(TESS_EXE) or shutil.which(TESS_EXE) is not None
+
+
 def _ocr_disponible():
-    return os.path.isfile(TESS_EXE) and os.path.isfile(os.path.join(TESSDATA, "spa.traineddata"))
+    return _binario_ok() and idioma_instalado()
 
 
 # ----------------------------------------------------------------------

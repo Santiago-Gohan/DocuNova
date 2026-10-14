@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: docunova
+    runtime: docker
+    plan: free
+    healthCheckPath: /login
+    envVars:
+      - key: ENTORNO
+        value: produccion
+      - key: ORGANIZADOR_CLAVE
+        generateValue: true

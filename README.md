@@ -54,7 +54,9 @@ python organizador.py
 
 ## Despliegue
 
-La app es Python/Flask: **no corre en GitHub Pages**. Para publicarla sin usar túneles, súbela a un host que ejecute Python (Render, Railway, Fly.io, PythonAnywhere). Recuerda instalar Tesseract y ejecutar `descargar_idioma.py` en el servidor.
+La app es Python/Flask: **no corre en GitHub Pages**. Para publicarla sin usar túneles, súbela a un host que ejecute Python. El repo ya incluye `Dockerfile`, `Procfile` y `render.yaml`, que instalan Tesseract y el idioma OCR automáticamente.
+
+Guía paso a paso: ver **[DESPLIEGUE.md](DESPLIEGUE.md)** (Render/Railway).
 
 ## Estructura
 
@@ -66,10 +68,13 @@ webapp/
   static/style.css  estilos
   datos/            carpetas privadas (no se sube al repo)
   trabajos/         archivos temporales por sesion
+nomenclatura.py     logica de nombres (compartida web/escritorio)
 inteligencia.py     motor de lectura/OCR y clasificacion
 organizador.py      app de escritorio
 analizar_grande.py  analisis de PDF por paginas (CLI)
 descargar_idioma.py descarga el idioma OCR (espanol)
+Dockerfile          imagen para desplegar (instala Tesseract + espanol)
+render.yaml         configuracion de despliegue en Render
 ```
 
 ## Aviso

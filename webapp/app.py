@@ -26,29 +26,46 @@ sys.path.insert(0, BASE)
 
 import db
 import inteligencia as intel
-import organizador as org
+import nomenclatura as nomen
 
-TRABAJOS = os.path.join(BASE, "trabajos")
+# --- Entorno: en produccion se desactiva el acceso local a "Mi PC" ---
+PRODUCCION = os.environ.get("ENTORNO", "").strip().lower() in ("produccion", "production", "prod")
+
+TRABAJOS = os.environ.get("ORGANIZADOR_TRABAJOS") or os.path.join(BASE, "trabajos")
 os.makedirs(TRABAJOS, exist_ok=True)
-DATOS = os.path.join(BASE, "datos")
+DATOS = os.environ.get("ORGANIZADOR_DATOS") or os.path.join(BASE, "datos")
 os.makedirs(DATOS, exist_ok=True)
 
 app = Flask(__name__)
 
-# --- Clave secreta persistente (para no cerrar sesion al reiniciar) ---
-_clave_file = os.path.join(BASE, "clave_secreta.txt")
-if os.path.isfile(_clave_file):
-    with open(_clave_file, "r", encoding="utf-8") as f:
-        _clave = f.read().strip()
+# --- Clave secreta (env var en produccion; si no, archivo local) ---
+_clave_env = os.environ.get("ORGANIZADOR_CLAVE")
+if _clave_env:
+    _clave = _clave_env
 else:
-    _clave = secrets.token_hex(32)
-    with open(_clave_file, "w", encoding="utf-8") as f:
-        f.write(_clave)
-app.secret_key = os.environ.get("ORGANIZADOR_CLAVE", _clave)
+    _clave_file = os.path.join(BASE, "clave_secreta.txt")
+    if os.path.isfile(_clave_file):
+        with open(_clave_file, "r", encoding="utf-8") as f:
+            _clave = f.read().strip()
+    else:
+        _clave = secrets.token_hex(32)
+        try:
+            with open(_clave_file, "w", encoding="utf-8") as f:
+                f.write(_clave)
+        except OSError:
+            pass
+app.secret_key = _clave
 app.config["MAX_CONTENT_LENGTH"] = 300 * 1024 * 1024  # 300 MB
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 db.inicializar()
+
+# En servidores donde no haya idioma OCR, se intenta descargar al arrancar
+try:
+    if not intel.idioma_instalado():
+        intel.asegurar_idioma()
+except Exception:
+    pass
 
 
 # ----------------------------------------------------------------------
@@ -76,7 +93,7 @@ def usuario_actual():
 
 @app.context_processor
 def inyectar():
-    return {"usuario": usuario_actual()}
+    return {"usuario": usuario_actual(), "produccion": PRODUCCION}
 
 
 def login_required(f):
@@ -332,7 +349,7 @@ def admin_clave(uid):
 @login_required
 def dashboard():
     return render_template("dashboard.html",
-                           n_docs=len(org.DOCS),
+                           n_docs=len(nomen.DOCS),
                            ocr=intel._ocr_disponible())
 
 
@@ -351,8 +368,8 @@ def herramienta_convertir():
             limpio = l.rstrip(",").strip()
             for m in resultado:
                 resultado[m].append({
-                    "texto": org.formatear(limpio, m),
-                    "token": org.formatear(limpio.replace(" ", "_"), m),
+                    "texto": nomen.formatear(limpio, m),
+                    "token": nomen.formatear(limpio.replace(" ", "_"), m),
                 })
     return render_template("convertir.html", resultado=resultado)
 
@@ -377,13 +394,13 @@ def herramienta_crear():
             menor = len(partes) > 2 and partes[2].strip().upper() in ("S", "SI", "SÍ")
             if not nombre:
                 continue
-            nom_carpeta = org.nombre_carpeta(nombre, "CC", numero, modo)
+            nom_carpeta = nomen.nombre_carpeta(nombre, "CC", numero, modo)
             ruta_est = os.path.join(carpeta, nom_carpeta)
             os.makedirs(ruta_est, exist_ok=True)
-            for num, nombre_doc, solo_menores in org.DOCS:
+            for num, nombre_doc, solo_menores in nomen.DOCS:
                 if solo_menores and not menor:
                     continue
-                nombre_archivo = org.nombre_documento(num, nombre_doc, modo, ".pdf")
+                nombre_archivo = nomen.nombre_documento(num, nombre_doc, modo, ".pdf")
                 with open(os.path.join(ruta_est, nombre_archivo), "wb") as f:
                     f.write(b"%PDF-1.4\n% documento de ejemplo\n")
             creados += 1
@@ -391,7 +408,7 @@ def herramienta_crear():
             zip_ruta = zip_de_carpeta(carpeta, "estructura_estudiantes.zip")
             return send_file(zip_ruta, as_attachment=True, download_name="estructura_estudiantes.zip")
         flash("No se creó nada: revisa el formato.", "error")
-    return render_template("crear.html", docs=org.DOCS)
+    return render_template("crear.html", docs=nomen.DOCS)
 
 
 # ----------------------------------------------------------------------
@@ -415,7 +432,7 @@ def herramienta_normalizar():
         cambios = 0
         for raiz, dirs, archivos in os.walk(entrada, topdown=False):
             for a in archivos:
-                nuevo = org.formatear(a, modo)
+                nuevo = nomen.formatear(a, modo)
                 if nuevo != a:
                     try:
                         os.rename(os.path.join(raiz, a), os.path.join(raiz, nuevo))
@@ -423,7 +440,7 @@ def herramienta_normalizar():
                     except OSError:
                         pass
             for dr in dirs:
-                nuevo = org.formatear(dr, modo)
+                nuevo = nomen.formatear(dr, modo)
                 if nuevo != dr:
                     try:
                         os.rename(os.path.join(raiz, dr), os.path.join(raiz, nuevo))
@@ -466,7 +483,7 @@ def herramienta_clasificar():
             ext = os.path.splitext(nombre)[1]
             if res:
                 num, nom, conf, _ = res
-                nuevo = org.nombre_documento(num, nom, modo, ext)
+                nuevo = nomen.nombre_documento(num, nom, modo, ext)
                 resultados.append({"archivo": a.filename, "tipo": f"{num}_{nom}", "conf": conf,
                                    "nuevo": nuevo, "ok": True})
             else:
@@ -648,6 +665,9 @@ def admin_documentos(uid):
 @app.route("/local", methods=["GET", "POST"])
 @admin_required
 def local():
+    if PRODUCCION:
+        flash("El acceso a archivos locales está desactivado en el servidor.", "error")
+        return redirect(url_for("dashboard"))
     ruta = request.form.get("ruta") or request.args.get("ruta") or ""
     entradas = []
     error = None
@@ -666,9 +686,10 @@ def local():
 
 
 if __name__ == "__main__":
+    puerto = int(os.environ.get("PORT", 5000))
     print("=" * 60)
     print("  DocuNova - Organizador de documentos (web)")
-    print("  Abre en tu navegador:  http://127.0.0.1:5000")
+    print(f"  Abre en tu navegador:  http://127.0.0.1:{puerto}")
     print("  Para acceso desde internet usa un tunel (ver LEEME_WEB.txt)")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=puerto, debug=False)

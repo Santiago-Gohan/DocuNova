@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.db
+clave_secreta.txt
+webapp/datos
+webapp/trabajos
+tessdata
+*.zip
+*.apk
+*.log
+venv
+.venv
