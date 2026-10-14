@@ -1,5 +1,5 @@
 ========================================================================
-  ORGANIZADOR DE DOCUMENTOS - VERSION WEB
+  DocuNova - ORGANIZADOR DE DOCUMENTOS (VERSION WEB)
   Instrucciones de uso
 ========================================================================
 

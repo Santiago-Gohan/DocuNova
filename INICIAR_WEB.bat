@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Organizador de Documentos - Web
+title DocuNova - Web
 cd /d "%~dp0webapp"
 
 echo ============================================================
-echo   ORGANIZADOR DE DOCUMENTOS - VERSION WEB
+echo   DocuNova - Organizador de documentos (web)
 echo ------------------------------------------------------------
 echo   Se abrira el navegador en:  http://127.0.0.1:5000
 echo   Para detener el servidor:   cierra esta ventana

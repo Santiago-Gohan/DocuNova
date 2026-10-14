@@ -1,4 +1,4 @@
-# Organizador de Documentos
+# DocuNova
 
 Sistema para organizar documentos de estudiantes: clasifica por tipo con **OCR local en español**, crea estructuras de carpetas, normaliza nombres y separa PDFs grandes. Incluye **versión web** (Flask) con **usuarios**, **roles (admin/usuario)** y **carpeta privada por usuario**.
 

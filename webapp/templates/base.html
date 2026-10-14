@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titulo %}Organizador{% endblock %} · Organizador de Documentos</title>
+  <title>{% block titulo %}DocuNova{% endblock %} · DocuNova</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="barra">
     <div class="marca">
-      <span class="logo">OD</span>
-      <span>Organizador de Documentos</span>
+      <span class="logo">DN</span>
+      <span>DocuNova</span>
     </div>
     <nav>
       {% if usuario %}
@@ -49,7 +49,7 @@
   </main>
 
   <footer class="pie">
-    Sistema local de gestión documental · Los datos se procesan en este equipo
+    DocuNova · Sistema local de gestión documental · Los datos se procesan en este equipo
   </footer>
 </body>
 </html>

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-ORGANIZADOR DE DOCUMENTOS DE ESTUDIANTES
+DocuNova - Organizador de Documentos de Estudiantes
 Sistema Integral de Gestion Documental
 
-3 herramientas:
+5 herramientas:
   1. Convertir texto  -> MAYUSCULA / minuscula / Tipo Titulo
   2. Crear estructura -> carpetas por estudiante con su nomenclatura
   3. Normalizar       -> renombrar carpetas y archivos existentes
+  4. Clasificar       -> detecta el tipo de cada documento (OCR)
+  5. Separar PDF      -> un PDF grande en documentos sueltos
 """
 import os
 import re
@@ -101,7 +103,7 @@ def nombre_documento(numero, nombre_doc, modo, ext=""):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Organizador de Documentos de Estudiantes")
+        self.title("DocuNova - Organizador de Documentos")
         self.geometry("960x720")
         self.minsize(860, 640)
         self.configure(bg="#F5F7FA")
