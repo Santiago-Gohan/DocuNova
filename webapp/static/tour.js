@@ -7,16 +7,24 @@
 (function () {
   "use strict";
 
+  /* Pregunta inicial (solo se muestra con la sesion iniciada) */
+  var INTRO = {
+    id: "0_goku", emoji: "\uD83E\uDD4B", color: "#f97316",
+    quien: "Goku", titulo: "\u00a1Hola! Soy Goku",
+    texto: "\u00bfYa dominas las t\u00e9cnicas de este sistema o necesitas que te entrene desde cero con esta gu\u00eda interactiva?"
+  };
+
+  /* Pasos de la guia (despues de aceptar el entrenamiento) */
   var PASOS = [
     {
       id: "1_goku", emoji: "\uD83E\uDD4B", color: "#f97316",
       quien: "Goku", titulo: "\u00a1Bienvenido a DocuNova!",
-      texto: "\u00a1Hola! \u00a1Soy Goku! Esta es tu central para organizar los documentos del colegio. Para empezar, crea tu cuenta con el bot\u00f3n \u2018Registrarse\u2019. \u00a1El primero que se registre ser\u00e1 el administrador!"
+      texto: "Esta es tu central para organizar los documentos del colegio. Aqu\u00ed ver\u00e1s todas las herramientas disponibles."
     },
     {
       id: "2_vegeta", emoji: "\uD83D\uDCAA", color: "#2563eb",
       quien: "Vegeta", titulo: "Entra y completa tu perfil",
-      texto: "\u00a1Hmph! \u00a1No hay tiempo que perder! Inicia sesi\u00f3n y entra a \u2018Mi perfil\u2019 para poner tu nombre y correo. Un guerrero siempre mantiene sus datos en orden."
+      texto: "\u00a1Hmph! \u00a1No hay tiempo que perder! Entra a \u2018Mi perfil\u2019 para poner tu nombre y correo. Un guerrero siempre mantiene sus datos en orden."
     },
     {
       id: "3_bulma", emoji: "\uD83D\uDD27", color: "#0d9488",
@@ -65,15 +73,15 @@
     }
   ];
 
-  var CLAVE = "docunova_tour_visto";
-  var i = 0;
-  var caja, img, emoji, quien, titulo, texto, contador, btnSig, btnAtras, puntos, raiz;
+  var CLAVE = "docunova_tour_v2";
+  var intro = true;   /* true = mostrando la pregunta inicial */
+  var i = 0;          /* indice dentro de PASOS */
+  var img, emoji, quien, titulo, texto, contador, btnSig, btnAtras, puntos, raiz;
+  var nav, introBox;
 
   function el(id) { return document.getElementById(id); }
 
-  function pintar() {
-    var p = PASOS[i];
-    raiz.style.setProperty("--acento", p.color);
+  function pintarBurbuja(p) {
     var base = raiz.getAttribute("data-imgbase") || "/static/tour/";
     img.onerror = function () { img.style.display = "none"; emoji.style.display = "block"; };
     img.style.display = "";
@@ -85,6 +93,19 @@
     quien.style.background = p.color;
     titulo.textContent = p.titulo;
     texto.textContent = p.texto;
+  }
+
+  function pintar() {
+    if (intro) {
+      pintarBurbuja(INTRO);
+      contador.textContent = "";
+      puntos.style.display = "none";
+      nav.style.display = "none";
+      introBox.style.display = "flex";
+      return;
+    }
+    var p = PASOS[i];
+    pintarBurbuja(p);
     contador.textContent = (i + 1) + " de " + PASOS.length;
     btnAtras.style.visibility = i === 0 ? "hidden" : "visible";
     btnSig.textContent = (i === PASOS.length - 1) ? "Finalizar" : "Siguiente";
@@ -93,13 +114,16 @@
       html += '<i class="' + (k === i ? "on" : "") + '"></i>';
     }
     puntos.innerHTML = html;
+    puntos.style.display = "flex";
+    nav.style.display = "flex";
+    introBox.style.display = "none";
   }
 
-  function abrir(n) {
-    i = (typeof n === "number") ? n : 0;
+  function abrir() {
+    intro = true;
+    i = 0;
     raiz.hidden = false;
-    /* forzar reflow para que la animacion de entrada se reproduzca */
-    void raiz.offsetWidth;
+    void raiz.offsetWidth;            /* reinicia la animacion de entrada */
     raiz.classList.add("abierto");
     pintar();
   }
@@ -108,6 +132,12 @@
     raiz.classList.remove("abierto");
     try { localStorage.setItem(CLAVE, "1"); } catch (e) {}
     window.setTimeout(function () { raiz.hidden = true; }, 260);
+  }
+
+  function empezarEntrenamiento() {
+    intro = false;
+    i = 0;
+    pintar();
   }
 
   function ir(n) {
@@ -120,7 +150,6 @@
   function iniciar() {
     raiz = el("tour");
     if (!raiz) { return; }
-    caja = el("tour-caja");
     img = el("tour-img");
     emoji = el("tour-emoji");
     quien = el("tour-quien");
@@ -130,25 +159,30 @@
     btnSig = el("tour-sig");
     btnAtras = el("tour-atras");
     puntos = el("tour-puntos");
+    nav = el("tour-nav");
+    introBox = el("tour-intro");
 
     btnSig.addEventListener("click", function () { ir(i + 1); });
     btnAtras.addEventListener("click", function () { ir(i - 1); });
     el("tour-cerrar").addEventListener("click", cerrar);
     el("tour-saltar").addEventListener("click", cerrar);
+    el("tour-experto").addEventListener("click", cerrar);
+    el("tour-maestro").addEventListener("click", empezarEntrenamiento);
 
     document.addEventListener("keydown", function (ev) {
       if (raiz.hidden) { return; }
       if (ev.key === "Escape") { cerrar(); }
+      if (intro) { return; }
       if (ev.key === "ArrowRight") { ir(i + 1); }
       if (ev.key === "ArrowLeft") { ir(i - 1); }
     });
 
-    window.abrirTour = function (n) { abrir(n); };
+    window.abrirTour = function () { abrir(); };
 
     var visto = false;
     try { visto = localStorage.getItem(CLAVE) === "1"; } catch (e) {}
     if (!visto) {
-      window.setTimeout(function () { abrir(0); }, 700);
+      window.setTimeout(abrir, 700);
     }
   }
 

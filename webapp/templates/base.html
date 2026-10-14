@@ -54,6 +54,7 @@
     DocuNova · Sistema local de gestión documental · Los datos se procesan en este equipo
   </footer>
 
+  {% if usuario %}
   <div id="tour" class="tour" hidden data-imgbase="{{ url_for('static', filename='tour/') }}">
     <div id="tour-caja" class="tour-caja">
       <button id="tour-cerrar" class="tour-cerrar" type="button" aria-label="Cerrar">&times;</button>
@@ -68,10 +69,14 @@
         <p id="tour-texto" class="tour-texto"></p>
         <div class="tour-pie">
           <span id="tour-paso" class="tour-paso"></span>
-          <div class="tour-nav">
+          <div id="tour-nav" class="tour-nav">
             <button id="tour-atras" class="boton seco mini" type="button">Atrás</button>
             <button id="tour-sig" class="boton mini" type="button">Siguiente</button>
           </div>
+        </div>
+        <div id="tour-intro" class="tour-intro" style="display:none">
+          <button id="tour-experto" class="boton seco mini" type="button">¡Ya soy un experto!</button>
+          <button id="tour-maestro" class="boton mini" type="button">¡Enséñame, Maestro!</button>
         </div>
         <div id="tour-puntos" class="tour-puntos"></div>
         <button id="tour-saltar" class="tour-saltar" type="button"
@@ -83,5 +88,8 @@
   </div>
 
   <script src="{{ url_for('static', filename='tour.js') }}"></script>
+  <button id="tour-fab" class="tour-fab" type="button"
+          onclick="window.abrirTour && window.abrirTour();">🐉 Guía</button>
+  {% endif %}
 </body>
 </html>
