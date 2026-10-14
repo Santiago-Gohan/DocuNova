@@ -1,0 +1,24 @@
+GUÍA DEL TOUR (DocuNova)
+========================
+
+Coloca aquí las imágenes de los personajes con EXACTAMENTE estos nombres.
+Si una imagen no existe, el tour muestra un emoji en su lugar (no se rompe).
+
+  1_goku.png
+  2_vegeta.png
+  3_bulma.png
+  4_piccolo.png
+  5_gohan.png
+  6_trunks.png
+  7_krillin.png
+  8_chichi.png
+  9_goten.png
+  10_videl.png
+  11_shenron.png
+
+Recomendado:
+- Formato PNG con transparencia (fondo transparente).
+- Vertical,aproximadamente 900 x 1200 px (se muestra a la izquierda del tour).
+- Personaje de cuerpo completo mirando al espectador.
+
+Los textos exactos de cada paso están en: ../../../PROMPTS_IMAGENES_TOUR.md

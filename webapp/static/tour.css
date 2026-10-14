@@ -1,0 +1,59 @@
+/* ===== Tour guiado estilo "product tour" (DocuNova) ===== */
+.tour{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+  background:rgba(10,18,32,.55);backdrop-filter:blur(6px);padding:18px;
+  opacity:0;pointer-events:none;transition:opacity .25s ease}
+.tour.abierto{opacity:1;pointer-events:auto}
+.tour[hidden]{display:none}
+
+.tour-caja{position:relative;width:min(900px,100%);background:var(--blanco);border-radius:22px;overflow:hidden;
+  display:grid;grid-template-columns:340px 1fr;box-shadow:0 24px 70px rgba(8,20,45,.45);
+  transform:translateY(16px) scale(.98);transition:transform .3s cubic-bezier(.2,.9,.3,1.2)}
+.tour.abierto .tour-caja{transform:none}
+
+/* Escenario del personaje */
+.tour-escenario{position:relative;display:flex;align-items:flex-end;justify-content:center;
+  min-height:380px;background:linear-gradient(165deg,#0f2544 0%,#1e4e8c 55%,#2b6cb0 100%);overflow:hidden}
+.tour-escenario::before{content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 70% 18%,rgba(255,214,102,.55),transparent 42%),
+    radial-gradient(circle at 20% 85%,rgba(120,220,255,.35),transparent 50%);
+  pointer-events:none}
+.tour-estrella{position:absolute;width:120px;height:120px;right:-30px;top:-30px;border-radius:50%;
+  background:radial-gradient(circle,#ffe38a,#ff9d2e 70%,transparent);filter:blur(2px);opacity:.85}
+.tour-img{position:relative;max-height:96%;max-width:96%;object-fit:contain;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,.45));animation:flotar 3.4s ease-in-out infinite}
+.tour-emoji{font-size:150px;line-height:1;filter:drop-shadow(0 12px 20px rgba(0,0,0,.4));
+  animation:flotar 3.4s ease-in-out infinite}
+@keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+
+/* Burbuja / panel de texto */
+.tour-panel{position:relative;padding:30px 32px 24px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.tour-panel::before{content:"";position:absolute;left:-14px;top:70px;width:0;height:0;
+  border-top:14px solid transparent;border-bottom:14px solid transparent;border-right:14px solid var(--blanco)}
+.tour-quien{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:13px;letter-spacing:.5px;
+  text-transform:uppercase;color:#fff;background:#1f2937;padding:5px 12px;border-radius:999px;align-self:flex-start}
+.tour-titulo{font-size:21px;margin:0;color:var(--texto)}
+.tour-texto{font-size:15px;line-height:1.55;color:#334155;margin:0}
+
+.tour-pie{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+.tour-paso{font-size:13px;font-weight:700;color:var(--gris)}
+.tour-nav{display:flex;gap:8px}
+.tour-nav .boton{margin:0}
+.tour-nav .boton.oculto{visibility:hidden}
+.tour-saltar{margin-top:2px}
+
+.tour-puntos{display:flex;gap:6px;justify-content:center;margin-top:4px}
+.tour-puntos i{width:8px;height:8px;border-radius:50%;background:#d7e2f0;transition:.2s}
+.tour-puntos i.on{background:var(--azul);transform:scale(1.25)}
+
+.tour-cerrar{position:absolute;top:12px;right:14px;z-index:2;border:none;background:rgba(255,255,255,.85);
+  width:34px;height:34px;border-radius:50%;font-size:18px;font-weight:800;color:#475569;cursor:pointer;line-height:1}
+.tour-cerrar:hover{background:#fff}
+
+@media(max-width:720px){
+  .tour-caja{grid-template-columns:1fr;width:min(460px,100%)}
+  .tour-escenario{min-height:220px}
+  .tour-emoji{font-size:100px}
+  .tour-panel::before{display:none}
+  .tour-panel{padding:22px}
+}
