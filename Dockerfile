@@ -5,9 +5,10 @@ ENV PYTHONUNBUFFERED=1 \
     ENTORNO=produccion \
     PORT=5000
 
-# Tesseract (OCR) + idiomas base
+# Tesseract (OCR) + idioma espanol del sistema (no depende de descargar de GitHub)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         tesseract-ocr \
+        tesseract-ocr-spa \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -17,8 +18,10 @@ RUN pip install -r requirements.txt gunicorn
 
 COPY . .
 
-# Descarga el idioma español del OCR dentro de la imagen
-RUN python descargar_idioma.py
+# Descarga el idioma español del OCR dentro de la imagen (respaldo si el
+# paquete del sistema no lo trae). Luego verifica que el OCR quede listo.
+RUN python descargar_idioma.py || true
+RUN python -c "import sys; sys.path.insert(0,'.'); import inteligencia as i; e=i.ocr_estado(); print('OCR', e); assert e['binario'] and e['spa'], 'OCR no disponible: falta Tesseract o spa.traineddata'"
 
 EXPOSE 5000
 

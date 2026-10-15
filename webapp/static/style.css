@@ -80,3 +80,46 @@ tr:hover td{background:#fafcff}
 .nota{color:var(--gris);font-size:13px;margin-top:6px}
 .centro{max-width:420px;margin:40px auto}
 .tabla-scroll{overflow-x:auto}
+
+/* ===== Seccion activa en la barra superior ===== */
+.barra nav a{position:relative}
+.barra nav a.activo{background:var(--azul);color:#fff}
+.barra nav a.activo:hover{background:var(--azul)}
+.barra nav a.admin.activo{border-color:var(--azul)}
+.barra nav a.usuario.activo{background:var(--azul-claro);color:var(--azul)}
+.barra nav a.activo::after{content:"";position:absolute;left:11px;right:11px;bottom:3px;height:2px;
+  background:rgba(255,255,255,.85);border-radius:2px;animation:crecer .25s ease-out}
+.barra nav a.usuario.activo::after{background:var(--azul)}
+@keyframes crecer{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1)}}
+/* Barra superior con acento animado (donde estas) */
+.barra{position:sticky;top:0}
+.barra::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:linear-gradient(90deg,var(--azul),#60a5fa,var(--azul));background-size:200% 100%;
+  animation:desliz 4s linear infinite;opacity:.6}
+@keyframes desliz{0%{background-position:0 0}100%{background-position:200% 0}}
+
+/* ===== Overlay de carga + barra de progreso ===== */
+.loading-overlay{position:fixed;inset:0;width:100vw;height:100vh;
+  background:rgba(15,23,42,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:flex;justify-content:center;align-items:center;z-index:100000;animation:fadeIn .3s ease-in-out}
+.ki-spinner-container{text-align:center;display:flex;flex-direction:column;align-items:center;position:relative}
+.ki-ball{width:80px;height:80px;background:radial-gradient(circle at 30% 30%,#93c5fd 0%,#3b82f6 40%,#1d4ed8 100%);
+  border-radius:50%;box-shadow:0 0 30px #3b82f6,0 0 60px #60a5fa,inset 0 0 15px rgba(255,255,255,.8);
+  animation:pulseKi 1.5s infinite alternate ease-in-out}
+.ki-aura{position:absolute;top:-15px;left:-15px;width:110px;height:110px;
+  border:2px dashed rgba(147,197,253,.6);border-radius:50%;animation:rotateAura 4s linear infinite}
+.ki-spinner-container h4{color:#fff;font-size:1.25rem;font-weight:600;margin:24px 0 8px 0;
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;letter-spacing:.025em}
+.ki-spinner-container p{color:#cbd5e1;font-size:.9rem;margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.progress{width:280px;max-width:72vw;height:10px;margin-top:22px;border-radius:999px;
+  background:rgba(255,255,255,.18);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.45)}
+.progress-bar{width:0;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#3b82f6,#93c5fd,#60a5fa);background-size:200% 100%;
+  transition:width .35s ease;animation:brillo 1.2s linear infinite}
+.progress-pct{color:#cbd5e1;font-size:.8rem;margin-top:8px;font-weight:600;letter-spacing:.03em}
+@keyframes pulseKi{0%{transform:scale(.95);box-shadow:0 0 20px #3b82f6,0 0 40px #60a5fa}
+  100%{transform:scale(1.08);box-shadow:0 0 40px #60a5fa,0 0 80px #93c5fd}}
+@keyframes rotateAura{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+@keyframes brillo{0%{background-position:0 0}100%{background-position:200% 0}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+

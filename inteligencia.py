@@ -7,6 +7,7 @@ Lee PDF (capa de texto u OCR local) e identifica que tipo de documento es.
 import os
 import re
 import sys
+import glob
 import shutil
 import tempfile
 import subprocess
@@ -38,9 +39,9 @@ def _buscar_tesseract():
     return shutil.which("tesseract") or "tesseract"
 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 TESS_EXE = _buscar_tesseract()
-TESSDATA = os.environ.get("TESSDATA_PREFIX") or os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "tessdata")
 TMP = os.path.join(tempfile.gettempdir(), "docunova_tmp")
 
 URL_IDIOMA = "https://github.com/tesseract-ocr/tessdata_best/raw/main/spa.traineddata"
@@ -49,17 +50,56 @@ EXT_IMAGEN = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 EXT_PDF = {".pdf"}
 
 
+# ----------------------------------------------------------------------
+# Localizacion del directorio "tessdata" con el idioma espanol.
+# Puede estar en varias rutas: la del proyecto, la del sistema (apt:
+# tesseract-ocr-spa) o la del instalador de Windows.
+# ----------------------------------------------------------------------
+def _candidatos_tessdata():
+    cands = []
+    env = os.environ.get("TESSDATA_PREFIX")
+    if env:
+        cands.append(env)
+    cands.append(os.path.join(BASE_DIR, "tessdata"))          # proyecto
+    if os.name == "nt":
+        cands += [r"C:\Program Files\Tesseract-OCR\tessdata",
+                  r"C:\Program Files (x86)\Tesseract-OCR\tessdata"]
+    else:
+        cands += sorted(glob.glob("/usr/share/tesseract-ocr/*/tessdata"), reverse=True)
+        cands += ["/usr/share/tesseract-ocr/tessdata", "/usr/share/tessdata",
+                  "/usr/local/share/tessdata"]
+    return [c for c in cands if c]
+
+
+def _dir_tessdata():
+    """Devuelve el primer directorio que tenga spa.traineddata, o None."""
+    for d in _candidatos_tessdata():
+        if os.path.isfile(os.path.join(d, "spa.traineddata")):
+            return d
+    return None
+
+
+def _dir_descarga():
+    """Carpeta local donde se descarga el idioma si falta en el sistema."""
+    return os.path.join(BASE_DIR, "tessdata")
+
+
+# Compatibilidad con codigo que lea intel.TESSDATA
+TESSDATA = _dir_tessdata() or _dir_descarga()
+
+
 def idioma_instalado():
-    return os.path.isfile(os.path.join(TESSDATA, "spa.traineddata"))
+    return _dir_tessdata() is not None
 
 
 def asegurar_idioma():
-    """Descarga spa.traineddata si falta (necesario en servidores)."""
+    """Descarga spa.traineddata si falta en cualquier ubicacion conocida."""
     if idioma_instalado():
         return True
     try:
-        os.makedirs(TESSDATA, exist_ok=True)
-        destino = os.path.join(TESSDATA, "spa.traineddata")
+        destino_dir = _dir_descarga()
+        os.makedirs(destino_dir, exist_ok=True)
+        destino = os.path.join(destino_dir, "spa.traineddata")
         urllib.request.urlretrieve(URL_IDIOMA, destino)
         return os.path.isfile(destino)
     except Exception:
@@ -72,6 +112,14 @@ def _binario_ok():
 
 def _ocr_disponible():
     return _binario_ok() and idioma_instalado()
+
+
+def ocr_estado():
+    """Diagnostico del OCR (para /salud)."""
+    d = _dir_tessdata()
+    return {"binario": _binario_ok(), "spa": d is not None,
+            "tessdata_dir": d, "exe": TESS_EXE,
+            "local": _dir_descarga()}
 
 
 # ----------------------------------------------------------------------
@@ -117,10 +165,14 @@ def _ocr_archivo(ruta, idioma="spa", psm="6"):
         return ""
     os.makedirs(TMP, exist_ok=True)
     try:
+        cmd = [TESS_EXE, ruta, "stdout", "-l", idioma]
+        d = _dir_tessdata()
+        if d:
+            cmd += ["--tessdata-dir", d]
+        cmd += ["--psm", psm]
         res = subprocess.run(
-            [TESS_EXE, ruta, "stdout", "-l", idioma,
-             "--tessdata-dir", TESSDATA, "--psm", psm],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=120)
         return res.stdout or ""
     except Exception:
         return ""

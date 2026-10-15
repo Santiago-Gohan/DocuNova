@@ -14,24 +14,25 @@
       <span>DocuNova</span>
     </div>
     <nav>
+      {% set ep = request.endpoint or '' %}
       {% if usuario %}
-        <a href="{{ url_for('dashboard') }}">Inicio</a>
-        <a href="{{ url_for('mis_documentos') }}">Mis documentos</a>
-        <a href="{{ url_for('herramienta_convertir') }}">Convertir</a>
-        <a href="{{ url_for('herramienta_crear') }}">Estructura</a>
-        <a href="{{ url_for('herramienta_clasificar') }}">Clasificar</a>
-        <a href="{{ url_for('herramienta_separar') }}">Separar PDF</a>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'activo' if ep == 'dashboard' else '' }}">Inicio</a>
+        <a href="{{ url_for('mis_documentos') }}" class="{{ 'activo' if ep == 'mis_documentos' else '' }}">Mis documentos</a>
+        <a href="{{ url_for('herramienta_convertir') }}" class="{{ 'activo' if ep == 'herramienta_convertir' else '' }}">Convertir</a>
+        <a href="{{ url_for('herramienta_crear') }}" class="{{ 'activo' if ep == 'herramienta_crear' else '' }}">Estructura</a>
+        <a href="{{ url_for('herramienta_clasificar') }}" class="{{ 'activo' if ep == 'herramienta_clasificar' else '' }}">Clasificar</a>
+        <a href="{{ url_for('herramienta_separar') }}" class="{{ 'activo' if ep == 'herramienta_separar' else '' }}">Separar PDF</a>
         {% if usuario.rol == 'admin' %}
-          {% if not produccion %}<a href="{{ url_for('local') }}">Mi PC</a>{% endif %}
-          <a class="admin" href="{{ url_for('admin') }}">Admin</a>
+          {% if not produccion %}<a href="{{ url_for('local') }}" class="{{ 'activo' if ep == 'local' else '' }}">Mi PC</a>{% endif %}
+          <a class="admin {{ 'activo' if ep in ('admin', 'admin_documentos') else '' }}" href="{{ url_for('admin') }}">Admin</a>
         {% endif %}
         <span class="sep"></span>
-        <a href="{{ url_for('perfil') }}" class="usuario">{{ usuario.nombre or usuario.usuario }}
+        <a href="{{ url_for('perfil') }}" class="usuario {{ 'activo' if ep == 'perfil' else '' }}">{{ usuario.nombre or usuario.usuario }}
           <span class="badge {{ usuario.rol }}">{{ usuario.rol }}</span></a>
         <a class="salir" href="{{ url_for('logout') }}">Salir</a>
       {% else %}
-        <a href="{{ url_for('login') }}">Entrar</a>
-        <a href="{{ url_for('registro') }}">Registrarse</a>
+        <a href="{{ url_for('login') }}" class="{{ 'activo' if ep == 'login' else '' }}">Entrar</a>
+        <a href="{{ url_for('registro') }}" class="{{ 'activo' if ep == 'registro' else '' }}">Registrarse</a>
       {% endif %}
     </nav>
   </header>
@@ -97,5 +98,24 @@
   <button id="tour-fab" class="tour-fab" type="button"
           onclick="window.abrirTour && window.abrirTour();">🐉 Guía</button>
   {% endif %}
+
+  <!-- ================================================================
+       Overlay de carga: se muestra al enviar formularios de documentos.
+       El progreso es una estimacion visual (el OCR corre en el servidor).
+       ================================================================ -->
+  <div id="loading-overlay" class="loading-overlay" style="display:none" aria-hidden="true">
+    <div class="ki-spinner-container">
+      <div class="ki-ball"></div>
+      <div class="ki-aura"></div>
+      <h4 id="loading-title">Procesando documento...</h4>
+      <p id="loading-subtitle">Canalizando energía y leyendo datos (OCR)</p>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+      <span id="progress-pct" class="progress-pct">0%</span>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='ui.js') }}"></script>
 </body>
 </html>

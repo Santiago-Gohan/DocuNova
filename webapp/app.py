@@ -164,7 +164,8 @@ def carpeta_usuario(uid):
 # ----------------------------------------------------------------------
 @app.route("/salud")
 def salud():
-    return "ok", 200
+    # Mantiene 200 para el healthcheck y ademas informa el estado del OCR.
+    return jsonify({"estado": "ok", "ocr": intel.ocr_estado()}), 200
 
 
 @app.route("/")

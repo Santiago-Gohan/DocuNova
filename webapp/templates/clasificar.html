@@ -4,7 +4,9 @@
 <h1>Clasificar documentos</h1>
 <p class="sub">Sube uno o varios PDF o imágenes. El sistema detecta el tipo y los renombra.</p>
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data"
+      data-titulo="Clasificando documentos..."
+      data-sub="Leyendo y detectando el tipo de cada archivo (OCR)">
   <div class="tarjeta">
     <label>Documentos (puedes seleccionar varios)</label>
     <input type="file" name="documentos" multiple required
