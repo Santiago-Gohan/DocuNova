@@ -526,15 +526,23 @@ EXT_DOC = intel.EXT_PDF | intel.EXT_IMAGEN
 
 
 def _carpeta_persona(info, modo):
-    """Nombre de la carpeta de una persona segun lo detectado."""
+    """Nombre de la carpeta de una persona. Estructura planeada:
+    NOMBRE_APELLIDO_TIPO_NUMERO (ej. SANTIAGO_BARRERA_CC_1031649321)."""
     if not info:
         return "SIN_IDENTIFICAR"
     nombre = (info.get("nombre") or "").strip()
     dni = (info.get("dni") or "").strip()
+    tipo = (info.get("tipo") or "").strip().upper()
+    if nombre and tipo and dni:
+        return nomen.nombre_carpeta(nombre, tipo, dni, modo)
     if nombre and dni:
         return nomen.formatear(f"{nombre.replace(' ', '_')}_{dni}", modo)
+    if nombre and tipo:
+        return nomen.formatear(f"{nombre.replace(' ', '_')}_{tipo}", modo)
     if nombre:
         return nomen.formatear(nombre.replace(" ", "_"), modo)
+    if dni and tipo:
+        return nomen.formatear(f"{tipo}_{dni}", modo)
     if dni:
         return nomen.formatear(f"DOC_{dni}", modo)
     if info.get("email"):

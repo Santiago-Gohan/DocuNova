@@ -37,6 +37,7 @@
 {% for p in resumen %}
 <div class="tarjeta">
   <h2>📁 {{ p.carpeta }}
+    {% if p.info and p.info.tipo %}<span class="pill">{{ p.info.tipo }}</span>{% endif %}
     {% if p.info and p.info.dni %}<span class="pill">{{ p.info.dni }}</span>{% endif %}
     {% if p.info and p.info.email %}<span class="pill gris">{{ p.info.email }}</span>{% endif %}
   </h2>

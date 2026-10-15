@@ -449,9 +449,35 @@ def _nombre_desde_archivo(nombre):
     return None
 
 
+def detectar_tipo_documento(texto):
+    """Detecta el tipo de documento de identidad (CC, TI, CE, RC, PP, NIT)."""
+    if not texto:
+        return None
+    t = normalizar(texto)  # minusculas, sin tildes, puntuacion -> espacio
+    claves = [
+        ("CC", [("cedula de ciudadania", 6), ("c c", 2)]),
+        ("TI", [("tarjeta de identidad", 6), ("t i", 2)]),
+        ("CE", [("cedula de extranjeria", 6), ("cedula de extranjero", 6), ("c e", 2)]),
+        ("RC", [("registro civil", 5), ("r c", 2)]),
+        ("PP", [("pasaporte", 5)]),
+        ("NIT", [("nit", 4)]),
+    ]
+    puntaje = {}
+    for tipo, alternativas in claves:
+        s = 0
+        for palabra, peso in alternativas:
+            if palabra in t:
+                s += peso
+        if s:
+            puntaje[tipo] = s
+    if not puntaje:
+        return None
+    return max(puntaje, key=puntaje.get)
+
+
 def detectar_persona(texto, nombre_archivo=""):
-    """Devuelve {'nombre','dni','email'} o None si no reconoce a la persona."""
-    info = {"nombre": None, "dni": None, "email": None}
+    """Devuelve {'nombre','dni','tipo','email'} o None si no reconoce a la persona."""
+    info = {"nombre": None, "dni": None, "tipo": None, "email": None}
     texto = texto or ""
 
     m = RE_EMAIL.search(texto)
@@ -464,6 +490,7 @@ def detectar_persona(texto, nombre_archivo=""):
     if numeros:
         info["dni"] = Counter(numeros).most_common(1)[0][0]
 
+    info["tipo"] = detectar_tipo_documento(texto)
     info["nombre"] = _detectar_nombre(texto) or _nombre_desde_archivo(nombre_archivo)
 
     if not (info["nombre"] or info["dni"] or info["email"]):
