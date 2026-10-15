@@ -406,36 +406,48 @@ PALABRAS_PROHIBIDAS = {
     "nombre", "firma", "codigo", "pagina", "senor", "senora", "adjunto", "anexo",
     "afiliado", "cotizante", "regimen", "subsidiado", "contributivo", "diploma",
     "bachiller", "jornada", "media", "acta", "clausulas", "partes", "habeas",
+    # etiquetas de formulario y conectivos
+    "nombre", "nombres", "apellido", "apellidos", "senor", "senora", "señor", "señora",
+    "sr", "sra",
+    "de", "la", "el", "los", "las", "del", "al", "y", "en", "con", "por", "para",
+    "que", "se", "un", "una", "cc", "ti", "ce", "rc", "pp", "nit", "ci", "dv",
 }
 
 
 def _detectar_nombre(texto):
-    """Devuelve el nombre completo mas frecuente detectado en el texto."""
+    """Devuelve el nombre de la persona detectado en el texto.
+
+    Ignora etiquetas (NOMBRE, APELLIDO, SENOR, C.C., ...) y conectivos
+    (DE, LA, DEL, ...). Prefiere lineas 100% en mayusculas (como en las
+    cedulas) y luego lineas Capitalizadas.
+    """
     if not texto:
         return None
-    contador = Counter()
+    fuertes = Counter()   # todas las palabras en MAYUSCULA
+    debiles = Counter()   # palabras Capitalizadas
     for linea in texto.splitlines():
         linea = linea.strip()
-        if not (4 <= len(linea) <= 45):
+        if not (4 <= len(linea) <= 90):
             continue
-        palabras = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+", linea)
-        if not (2 <= len(palabras) <= 4):
+        tokens = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+", linea)
+        limpios = []
+        for p in tokens:
+            if len(p) < 2 or p.lower() in PALABRAS_PROHIBIDAS:
+                continue
+            if p[0].isupper() or p.isupper():
+                limpios.append(p)
+        if not (2 <= len(limpios) <= 4):
             continue
-        valido = True
-        for p in palabras:
-            pl = p.lower()
-            if len(p) < 2 or pl in PALABRAS_PROHIBIDAS:
-                valido = False
-                break
-            if not (p[0].isupper() or p.isupper()):
-                valido = False
-                break
-        if valido:
-            contador[" ".join(palabras)] += 1
-    if not contador:
-        return None
-    # normaliza a formato legible conservando el original
-    return contador.most_common(1)[0][0]
+        clave = " ".join(limpios)
+        if all(p.isupper() for p in limpios):
+            fuertes[clave] += 1
+        else:
+            debiles[clave] += 1
+    if fuertes:
+        return fuertes.most_common(1)[0][0]
+    if debiles:
+        return debiles.most_common(1)[0][0]
+    return None
 
 
 def _nombre_desde_archivo(nombre):
