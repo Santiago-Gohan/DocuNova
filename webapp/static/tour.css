@@ -48,13 +48,13 @@
   50%      { transform: translateY(-10px); }
 }
 
-/* Caja de dialogo moderna (efecto cristal) */
+/* Caja de dialogo moderna (efecto cristal, tema oscuro) */
 .tour-dialog-box {
-  background: rgba(255, 255, 255, .95);
+  background: rgba(18, 28, 49, .96);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(226, 232, 240, 1);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1);
+  border: 1px solid rgba(47, 67, 99, 1);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, .6), 0 8px 12px -6px rgba(0, 0, 0, .5);
   border-radius: 16px;
   padding: 20px 20px 16px 35px;  /* padding izq. mayor por el solape del personaje */
   width: 100%;
@@ -84,19 +84,19 @@
   border: none;
   font-size: 1.25rem;
   line-height: 1;
-  color: #64748b;
+  color: #93a4bf;
   cursor: pointer;
 }
-.close-btn:hover { color: #1e293b; }
+.close-btn:hover { color: #e6edf7; }
 
 .tour-dialog-box h3 {
   font-size: 1.1rem;
-  color: #1e293b;
+  color: #e6edf7;
   margin: 0 0 6px 0;
 }
 .tour-dialog-box p {
   font-size: .9rem;
-  color: #475569;
+  color: #a9b8d0;
   margin: 0 0 16px 0;
   line-height: 1.45;
 }
@@ -112,15 +112,15 @@
   cursor: pointer;
   transition: background .2s;
 }
-.btn-secondary { background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-.btn-secondary:hover { background-color: #e2e8f0; }
+.btn-secondary { background-color: #1b2740; color: #cbd5e1; border: 1px solid #2f4363; }
+.btn-secondary:hover { background-color: #24324f; }
 .btn-primary { background-color: #2563eb; color: #fff; border: none; }
 .btn-primary:hover { background-color: #1d4ed8; }
 
 /* Puntos de progreso */
 .tour-dots { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
-.tour-dots i { width: 8px; height: 8px; border-radius: 50%; background: #d7e2f0; transition: .2s; }
-.tour-dots i.on { background: #2563eb; transform: scale(1.25); }
+.tour-dots i { width: 8px; height: 8px; border-radius: 50%; background: #2f4363; transition: .2s; }
+.tour-dots i.on { background: #4c8dff; transform: scale(1.25); }
 
 /* Boton flotante para abrir la guia */
 .tour-fab {
