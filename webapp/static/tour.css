@@ -10,32 +10,34 @@
   position: fixed;
   bottom: 90px;            /* deja libre el boton 🐉 Guía (abajo derecha) */
   right: 30px;
-  display: flex;
-  align-items: stretch;    /* el personaje se estira a la altura del texto */
+  width: 400px;
+  max-width: calc(100vw - 40px);
   z-index: 9999;
-  max-width: 480px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .tour-container.abierto { animation: fadeIn .3s ease-in-out; }
 .tour-container[hidden] { display: none; }
 
-/* Personaje: imagen suelta detras, a la MISMA altura que la caja de texto */
+/* Personaje: imagen de FONDO de la tarjeta (detras del texto) */
 .tour-character-wrapper {
-  position: relative;
+  position: absolute;
+  inset: 0;                /* cubre toda la tarjeta */
   display: flex;
   align-items: flex-end;
-  margin-right: -22px;     /* solape ligero con la caja de dialogo */
-  z-index: 1;              /* detras: el texto va por delante */
-  pointer-events: none;
-  align-self: stretch;
+  justify-content: flex-start;
+  z-index: 0;              /* fondo */
+  pointer-events: none;    /* nunca bloquea clics del texto/botones */
+  overflow: hidden;
+  border-radius: 16px;
 }
 .character-img {
   display: block;
   width: auto;
-  height: 100%;            /* igual altura que el texto del guia */
-  max-height: 240px;       /* tope para imagenes muy verticales */
+  height: 100%;            /* misma altura que la tarjeta de texto */
+  max-height: none;
   object-fit: contain;
-  object-position: bottom;
+  object-position: left bottom;
+  opacity: .9;
   filter: drop-shadow(0px 4px 8px rgba(0, 0, 0, .2));
   animation: flotar 3.4s ease-in-out infinite;
 }
@@ -51,17 +53,17 @@
   50%      { transform: translateY(-10px); }
 }
 
-/* Caja de dialogo moderna (efecto cristal, tema oscuro) */
+/* Caja de dialogo sobre la imagen (la imagen es el fondo de la tarjeta) */
 .tour-dialog-box {
   position: relative;
-  z-index: 2;              /* delante del personaje: el texto nunca queda tapado */
-  background: rgba(18, 28, 49, .96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  z-index: 1;              /* encima del personaje-fondo: botones siempre clicables */
+  background: rgba(11, 18, 32, .66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(47, 67, 99, 1);
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, .6), 0 8px 12px -6px rgba(0, 0, 0, .5);
   border-radius: 16px;
-  padding: 20px 20px 16px 35px;  /* padding izq. mayor por el solape del personaje */
+  padding: 18px 18px 14px 18px;
   width: 100%;
 }
 
@@ -142,14 +144,14 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Movil: el dialogo ocupa el ancho y el personaje se reduce */
+/* Movil: la tarjeta ocupa el ancho; la imagen sigue de fondo */
 @media (max-width: 680px) {
   .tour-container {
     left: 10px; right: 10px; bottom: 80px;
-    flex-direction: column; align-items: center; max-width: none;
+    width: auto; max-width: none;
   }
-  .tour-character-wrapper { margin-right: 0; margin-bottom: -14px; align-self: auto; }
-  .character-img { height: auto; width: 96px; max-height: 150px; }
+  .tour-character-wrapper { justify-content: center; }
+  .character-img { object-position: center bottom; }
   .character-emoji { font-size: 80px; }
   .tour-dialog-box { padding: 16px; }
   .tour-fab { padding: 10px 14px; font-size: 13px; }
