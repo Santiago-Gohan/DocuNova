@@ -15,7 +15,8 @@ import shutil
 import secrets
 import functools
 import threading
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
 from flask import (Flask, render_template, request, redirect, url_for, session,
                    flash, send_file, abort, jsonify)
@@ -59,6 +60,11 @@ else:
 app.secret_key = _clave
 app.config["MAX_CONTENT_LENGTH"] = 300 * 1024 * 1024  # 300 MB
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+# La sesion se cierra sola tras este tiempo sin actividad (ademas de
+# cerrarse al cerrar el navegador, por ser cookie de sesion no permanente).
+MINUTOS_INACTIVIDAD = 30
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=MINUTOS_INACTIVIDAD)
 
 db.inicializar()
 
@@ -96,6 +102,24 @@ def usuario_actual():
         session.clear()
         return None
     return u
+
+
+@app.before_request
+def _control_inactividad():
+    """Cierra la sesion si pasa demasiado tiempo sin actividad."""
+    if not session.get("uid"):
+        return None
+    ahora = time.time()
+    ultimo = session.get("_ultimo", ahora)
+    if ahora - ultimo > MINUTOS_INACTIVIDAD * 60:
+        limpiar_trabajo()
+        session.clear()
+        if request.endpoint not in ("login", "registro", "salud", "static"):
+            flash("Tu sesión se cerró por inactividad. Vuelve a entrar.", "aviso")
+            return redirect(url_for("login"))
+        return None
+    session["_ultimo"] = ahora
+    return None
 
 
 @app.context_processor
@@ -178,6 +202,8 @@ def index():
 
 @app.route("/registro", methods=["GET", "POST"])
 def registro():
+    if usuario_actual():
+        return redirect(url_for("dashboard"))
     primero = not db.hay_usuarios()
     if request.method == "POST":
         usuario = (request.form.get("usuario") or "").strip()
@@ -207,6 +233,8 @@ def registro():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if usuario_actual():
+        return redirect(url_for("dashboard"))
     if request.method == "POST":
         usuario = (request.form.get("usuario") or "").strip()
         clave = request.form.get("clave") or ""
@@ -214,6 +242,7 @@ def login():
         if u:
             session.clear()
             session["uid"] = u["id"]
+            session["_ultimo"] = time.time()
             db.marcar_acceso(u["id"])
             db.registrar_actividad(u["id"], u["usuario"], "login")
             nxt = request.args.get("siguiente") or url_for("dashboard")

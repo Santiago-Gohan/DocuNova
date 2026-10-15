@@ -9,14 +9,15 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='7') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='9') }}">
 </head>
-<body class="{% block body_class %}{% endblock %}">
+  <body class="{% block body_class %}{% endblock %}">
+  {% set ep = request.endpoint or '' %}
+  {% if ep not in ('login', 'registro') %}
   <header class="barra">
     <div class="marca">
       <span class="logo">DN</span>
       <span>DocuNova</span>
     </div>
     <nav>
-      {% set ep = request.endpoint or '' %}
       {% if usuario %}
         <a href="{{ url_for('dashboard') }}" class="{{ 'activo' if ep == 'dashboard' else '' }}">Inicio</a>
         <a href="{{ url_for('mis_documentos') }}" class="{{ 'activo' if ep == 'mis_documentos' else '' }}">Mis documentos</a>
@@ -39,6 +40,7 @@
       {% endif %}
     </nav>
   </header>
+  {% endif %}
 
   <main class="contenido">
     {% with mensajes = get_flashed_messages(with_categories=true) %}
