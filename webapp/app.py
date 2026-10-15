@@ -519,6 +519,132 @@ def herramienta_clasificar():
 
 
 # ----------------------------------------------------------------------
+# Herramienta: organizar por persona (subir carpeta/ZIP -> una carpeta
+# por persona con cada documento ya clasificado)
+# ----------------------------------------------------------------------
+EXT_DOC = intel.EXT_PDF | intel.EXT_IMAGEN
+
+
+def _carpeta_persona(info, modo):
+    """Nombre de la carpeta de una persona segun lo detectado."""
+    if not info:
+        return "SIN_IDENTIFICAR"
+    nombre = (info.get("nombre") or "").strip()
+    dni = (info.get("dni") or "").strip()
+    if nombre and dni:
+        return nomen.formatear(f"{nombre.replace(' ', '_')}_{dni}", modo)
+    if nombre:
+        return nomen.formatear(nombre.replace(" ", "_"), modo)
+    if dni:
+        return nomen.formatear(f"DOC_{dni}", modo)
+    if info.get("email"):
+        return nomen.formatear(info["email"], modo)
+    return "SIN_IDENTIFICAR"
+
+
+@app.route("/herramientas/organizar", methods=["GET", "POST"])
+@login_required
+def herramienta_organizar():
+    if request.method == "POST":
+        archivo = request.files.get("carpeta")
+        modo = request.form.get("modo", "upper")
+        if not archivo or not archivo.filename:
+            flash("Sube la carpeta de documentos comprimida en un ZIP.", "error")
+            return redirect(url_for("herramienta_organizar"))
+        if not archivo.filename.lower().endswith(".zip"):
+            flash("Empaqueta la carpeta en un ZIP (.zip) y vuelve a subirla.", "error")
+            return redirect(url_for("herramienta_organizar"))
+
+        d = trabajo_dir()
+        entrada = os.path.join(d, "organizar_entrada")
+        salida = os.path.join(d, "organizar_salida")
+        shutil.rmtree(entrada, ignore_errors=True)
+        shutil.rmtree(salida, ignore_errors=True)
+        os.makedirs(entrada, exist_ok=True)
+        os.makedirs(salida, exist_ok=True)
+
+        zip_in = os.path.join(d, "organizar.zip")
+        archivo.save(zip_in)
+        try:
+            with zipfile.ZipFile(zip_in) as z:
+                z.extractall(entrada)
+        except zipfile.BadZipFile:
+            flash("El archivo no es un ZIP válido.", "error")
+            return redirect(url_for("herramienta_organizar"))
+
+        personas = {}   # clave -> {"carpeta", "docs": [...], "sin_id": n}
+        orden = []
+        total = 0
+        sin_id = 0
+        for raiz, _dirs, archivos in os.walk(entrada):
+            for a in archivos:
+                ext = os.path.splitext(a)[1].lower()
+                if ext not in EXT_DOC:
+                    continue
+                ruta = os.path.join(raiz, a)
+                rel = os.path.relpath(ruta, entrada)
+                sub = os.path.dirname(rel)
+                try:
+                    texto, res = intel.clasificar_archivo(ruta)
+                except Exception:
+                    texto, res = "", None
+                info = intel.detectar_persona(texto, a)
+                # pista: si el ZIP ya venía con una subcarpeta por persona
+                if not info and sub and sub != ".":
+                    cand = os.path.basename(sub).replace("_", " ").strip()
+                    if cand:
+                        info = {"nombre": cand, "dni": None, "email": None}
+                clave = intel.clave_persona(info)
+                if clave == "sin_identificar":
+                    sin_id += 1
+                if clave not in personas:
+                    personas[clave] = {"carpeta": _carpeta_persona(info, modo),
+                                       "info": info, "docs": []}
+                    orden.append(clave)
+                # nombre del documento clasificado
+                if res:
+                    num, nom, conf, _ = res
+                    nuevo = nomen.nombre_documento(num, nom, modo, ext)
+                    tipo = f"{num}_{nom}"
+                else:
+                    nuevo = nomen.formatear(a, modo)
+                    tipo = "no identificado"
+                    conf = "-"
+                # carpeta destino + evitar colisiones
+                carpeta_p = os.path.join(salida, personas[clave]["carpeta"])
+                os.makedirs(carpeta_p, exist_ok=True)
+                destino = os.path.join(carpeta_p, nuevo)
+                base, e2 = os.path.splitext(destino)
+                k = 2
+                while os.path.exists(destino):
+                    destino = f"{base}_{k}{e2}"
+                    k += 1
+                shutil.copy2(ruta, destino)
+                personas[clave]["docs"].append({
+                    "original": a, "nuevo": os.path.basename(destino),
+                    "tipo": tipo, "conf": conf, "ok": bool(res),
+                })
+                total += 1
+
+        if total == 0:
+            flash("No se encontraron documentos PDF o imágenes dentro del ZIP.", "error")
+            return redirect(url_for("herramienta_organizar"))
+
+        zip_ruta = zip_de_carpeta(salida, "organizado_por_persona.zip")
+        db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "organizar",
+                               f"{total} documentos, {len(personas)} personas")
+        resumen = []
+        for clave in orden:
+            p = personas[clave]
+            resumen.append({"carpeta": p["carpeta"], "docs": p["docs"],
+                            "info": p["info"]})
+        return render_template("organizar.html", resumen=resumen, total=total,
+                               n_personas=len(personas), sin_id=sin_id,
+                               zip_listo=True)
+    return render_template("organizar.html", resumen=None)
+
+
+# ----------------------------------------------------------------------
 # Herramienta: separar PDF grande
 # ----------------------------------------------------------------------
 @app.route("/herramientas/separar", methods=["GET", "POST"])
@@ -563,7 +689,9 @@ def herramienta_separar():
 @app.route("/descargas/<nombre>")
 @login_required
 def descargar(nombre):
-    if nombre not in (session.get("zip_clasificar"),):
+    permitidos = {session.get("zip_clasificar"), "documentos_clasificados.zip",
+                  "organizado_por_persona.zip"}
+    if nombre not in permitidos:
         abort(404)
     ruta = os.path.join(trabajo_dir(), nombre)
     if not os.path.isfile(ruta):

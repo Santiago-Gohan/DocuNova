@@ -13,6 +13,7 @@ import tempfile
 import subprocess
 import unicodedata
 import urllib.request
+from collections import Counter
 
 try:
     import pymupdf
@@ -385,3 +386,99 @@ def separar_pdf(ruta, carpeta_salida, grupos, modo="upper", prefijo=None):
     finally:
         doc.close()
     return creados
+
+
+# ----------------------------------------------------------------------
+# DETECCION DE LA PERSONA (a quien pertenece cada documento)
+# Es heuristica: intenta leer el numero de documento, el nombre y el correo.
+# ----------------------------------------------------------------------
+RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+# Palabras que NO forman parte de un nombre (titulos de documentos, etc.)
+PALABRAS_PROHIBIDAS = {
+    "acta", "compromiso", "compromisos", "documento", "documentos", "identidad",
+    "certificado", "certificacion", "academico", "academica", "estudios", "grado",
+    "eps", "tratamiento", "datos", "personales", "registro", "civil", "tutor",
+    "legal", "representante", "acudiente", "cedula", "ciudadania", "tarjeta",
+    "republica", "colombia", "registraduria", "nacional", "institucion", "educativa",
+    "colegio", "secretaria", "educacion", "entidad", "promotora", "salud", "sisben",
+    "autorizacion", "notaria", "numero", "fecha", "nacimiento", "nombres", "apellidos",
+    "nombre", "firma", "codigo", "pagina", "senor", "senora", "adjunto", "anexo",
+    "afiliado", "cotizante", "regimen", "subsidiado", "contributivo", "diploma",
+    "bachiller", "jornada", "media", "acta", "clausulas", "partes", "habeas",
+}
+
+
+def _detectar_nombre(texto):
+    """Devuelve el nombre completo mas frecuente detectado en el texto."""
+    if not texto:
+        return None
+    contador = Counter()
+    for linea in texto.splitlines():
+        linea = linea.strip()
+        if not (4 <= len(linea) <= 45):
+            continue
+        palabras = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+", linea)
+        if not (2 <= len(palabras) <= 4):
+            continue
+        valido = True
+        for p in palabras:
+            pl = p.lower()
+            if len(p) < 2 or pl in PALABRAS_PROHIBIDAS:
+                valido = False
+                break
+            if not (p[0].isupper() or p.isupper()):
+                valido = False
+                break
+        if valido:
+            contador[" ".join(palabras)] += 1
+    if not contador:
+        return None
+    # normaliza a formato legible conservando el original
+    return contador.most_common(1)[0][0]
+
+
+def _nombre_desde_archivo(nombre):
+    """Intenta sacar el nombre de la persona desde el nombre del archivo."""
+    base = os.path.splitext(os.path.basename(nombre or ""))[0]
+    base = re.sub(r"[_\-\.\d]+", " ", base)
+    palabras = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{2,}", base)
+    sel = [p for p in palabras if p.lower() not in PALABRAS_PROHIBIDAS]
+    if len(sel) >= 2:
+        return " ".join(sel[:4])
+    return None
+
+
+def detectar_persona(texto, nombre_archivo=""):
+    """Devuelve {'nombre','dni','email'} o None si no reconoce a la persona."""
+    info = {"nombre": None, "dni": None, "email": None}
+    texto = texto or ""
+
+    m = RE_EMAIL.search(texto)
+    if m:
+        info["email"] = m.group(0).lower()
+
+    # numero de documento: 6 a 11 digitos (quitando separadores de miles)
+    limpio = re.sub(r"([.\s])(?=\d)", "", texto)
+    numeros = re.findall(r"\b\d{6,11}\b", limpio)
+    if numeros:
+        info["dni"] = Counter(numeros).most_common(1)[0][0]
+
+    info["nombre"] = _detectar_nombre(texto) or _nombre_desde_archivo(nombre_archivo)
+
+    if not (info["nombre"] or info["dni"] or info["email"]):
+        return None
+    return info
+
+
+def clave_persona(info):
+    """Clave de agrupacion: prioriza el numero de documento."""
+    if not info:
+        return "sin_identificar"
+    if info.get("dni"):
+        return "dni_" + info["dni"]
+    if info.get("nombre"):
+        return "nom_" + normalizar(info["nombre"]).replace(" ", "_")
+    if info.get("email"):
+        return "mail_" + info["email"]
+    return "sin_identificar"

@@ -24,6 +24,7 @@
         <a href="{{ url_for('herramienta_crear') }}" class="{{ 'activo' if ep == 'herramienta_crear' else '' }}">Estructura</a>
         <a href="{{ url_for('herramienta_clasificar') }}" class="{{ 'activo' if ep == 'herramienta_clasificar' else '' }}">Clasificar</a>
         <a href="{{ url_for('herramienta_separar') }}" class="{{ 'activo' if ep == 'herramienta_separar' else '' }}">Separar PDF</a>
+        <a href="{{ url_for('herramienta_organizar') }}" class="{{ 'activo' if ep == 'herramienta_organizar' else '' }}">Organizar</a>
         {% if usuario.rol == 'admin' %}
           {% if not produccion %}<a href="{{ url_for('local') }}" class="{{ 'activo' if ep == 'local' else '' }}">Mi PC</a>{% endif %}
           <a class="admin {{ 'activo' if ep in ('admin', 'admin_documentos') else '' }}" href="{{ url_for('admin') }}">Admin</a>
