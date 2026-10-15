@@ -6,8 +6,15 @@
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;color:var(--texto);
-  background:radial-gradient(1200px 600px at 70% -10%,#14203a 0%,var(--fondo) 55%),var(--fondo);
-  min-height:100vh}
+  background:#0b1220 url('/static/assets/fondo-trabajo.webp') center center / cover no-repeat fixed;
+  min-height:100vh;position:relative}
+body::before{content:"";position:fixed;inset:0;background:rgba(11,18,32,.55);
+  backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);pointer-events:none;z-index:0}
+body.auth-page{background:#0b1220 url('/static/assets/fondo-login.webp') center center / cover no-repeat fixed}
+body.auth-page::before{background:rgba(11,18,32,.6)}
+.barra{position:relative;z-index:1}
+.contenido{position:relative;z-index:1}
+.pie{position:relative;z-index:1}
 a{color:var(--azul);text-decoration:none}
 a:hover{text-decoration:underline}
 
