@@ -6,13 +6,19 @@
    persona, crea su carpeta y clasifica cada documento (001…007).</p>
 
 {% if not resumen %}
-<form method="post" enctype="multipart/form-data"
+<form method="post" enctype="multipart/form-data" id="form-organizar"
       data-titulo="Analizando documentos..."
       data-sub="Leyendo cada documento, detectando la persona y clasificando (OCR)">
   <input type="hidden" name="accion" value="analizar">
   <div class="tarjeta">
-    <label>Carpeta comprimida (ZIP)</label>
-    <input type="file" name="carpeta" accept=".zip,application/zip" required>
+    <label>Opción 1 — Subir la carpeta directamente</label>
+    <input type="file" name="documentos" webkitdirectory directory multiple>
+    <p class="nota">Elige la carpeta con los documentos de tus estudiantes.
+       No hace falta comprimirla.</p>
+
+    <label>Opción 2 — Subir un ZIP</label>
+    <input type="file" name="carpeta" accept=".zip,application/zip">
+
     <label>Formato de los nombres</label>
     <select name="modo">
       <option value="upper">MAYÚSCULAS</option>
@@ -21,10 +27,28 @@
     </select>
     <button class="boton" type="submit">Analizar y detectar personas</button>
     <p class="nota">Identifica a cada persona leyendo el número de documento, el nombre,
-       el tipo (CC/TI/CE…) y el correo dentro de cada archivo. Si el ZIP ya trae una
-       subcarpeta por persona, también se usa como pista.</p>
+       el tipo (CC/TI/CE…) y el correo dentro de cada archivo. Si el ZIP o la carpeta ya
+       trae una subcarpeta por persona, también se usa como pista.</p>
   </div>
 </form>
+
+<script>
+(function () {
+  var form = document.getElementById("form-organizar");
+  if (!form) return;
+  form.addEventListener("submit", function (e) {
+    var zip = form.querySelector('input[name="carpeta"]');
+    var dir = form.querySelector('input[name="documentos"]');
+    var hayZip = zip && zip.files && zip.files.length > 0;
+    var hayDir = dir && dir.files && dir.files.length > 0;
+    if (!hayZip && !hayDir) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      alert("Elige una carpeta o sube un ZIP.");
+    }
+  }, true);
+})();
+</script>
 
 {% else %}
 <div class="tarjeta">

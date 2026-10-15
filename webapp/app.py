@@ -558,27 +558,44 @@ def herramienta_organizar():
         accion = request.form.get("accion", "analizar")
         d = trabajo_dir()
 
-        # ---------- FASE 1: analizar el ZIP y detectar personas ----------
+        # ---------- FASE 1: analizar el ZIP o la carpeta y detectar personas ----------
         if accion == "analizar":
             archivo = request.files.get("carpeta")
+            docs = [f for f in request.files.getlist("documentos") if f and f.filename]
             modo = request.form.get("modo", "upper")
-            if not archivo or not archivo.filename:
-                flash("Sube la carpeta de documentos comprimida en un ZIP.", "error")
-                return redirect(url_for("herramienta_organizar"))
-            if not archivo.filename.lower().endswith(".zip"):
-                flash("Empaqueta la carpeta en un ZIP (.zip) y vuelve a subirla.", "error")
-                return redirect(url_for("herramienta_organizar"))
 
             entrada = os.path.join(d, "organizar_entrada")
             shutil.rmtree(entrada, ignore_errors=True)
             os.makedirs(entrada, exist_ok=True)
-            zip_in = os.path.join(d, "organizar.zip")
-            archivo.save(zip_in)
-            try:
-                with zipfile.ZipFile(zip_in) as z:
-                    z.extractall(entrada)
-            except zipfile.BadZipFile:
-                flash("El archivo no es un ZIP válido.", "error")
+
+            if archivo and archivo.filename:
+                if not archivo.filename.lower().endswith(".zip"):
+                    flash("El archivo debe ser un ZIP (.zip).", "error")
+                    return redirect(url_for("herramienta_organizar"))
+                zip_in = os.path.join(d, "organizar.zip")
+                archivo.save(zip_in)
+                try:
+                    with zipfile.ZipFile(zip_in) as z:
+                        z.extractall(entrada)
+                except zipfile.BadZipFile:
+                    flash("El archivo no es un ZIP válido.", "error")
+                    return redirect(url_for("herramienta_organizar"))
+            elif docs:
+                # Carpeta subida directamente: se conservan las subcarpetas
+                for f in docs:
+                    rel = (f.filename or "").replace("\\", "/")
+                    partes: list[str] = []
+                    for p in rel.split("/"):
+                        if not p or p in ("..", "."):
+                            continue
+                        partes.append(secure_filename(p) or "archivo")
+                    if not partes:
+                        continue
+                    destino = os.path.join(entrada, *partes)
+                    os.makedirs(os.path.dirname(destino), exist_ok=True)
+                    f.save(destino)
+            else:
+                flash("Elige una carpeta o sube un ZIP.", "error")
                 return redirect(url_for("herramienta_organizar"))
 
             personas = {}
