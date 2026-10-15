@@ -132,9 +132,29 @@ tr:hover td{background:#16213a}
 @keyframes brillo{0%{background-position:0 0}100%{background-position:200% 0}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
-/* Scrollbar oscuro */
-*{scrollbar-color:#33466b var(--fondo);scrollbar-width:thin}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-track{background:var(--fondo)}
-::-webkit-scrollbar-thumb{background:#33466b;border-radius:8px;border:2px solid var(--fondo)}
-::-webkit-scrollbar-thumb:hover{background:#405680}
+body.auth-page {
+  background: #0b1220 url('/static/assets/fondo-login.webp') center center / cover no-repeat fixed;
+}
+body.auth-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 18, 32, .6);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+body.auth-page .barra {
+  background: rgba(18,28,49,.92);
+}
+body.auth-page .contenido {
+  position: relative;
+  z-index: 1;
+}
+body.auth-page .tarjeta {
+  background: rgba(18, 28, 49, .88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(47,67,99,.8);
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,.6);
+}
