@@ -1,0 +1,34 @@
+GUIA DEL TOUR (DocuNova)
+========================
+
+Carpeta de personajes:  webapp/static/assets/characters/
+
+El tour busca la imagen por el campo "id" de cada paso en tour.js, probando
+estas extensiones en orden:  .png  ->  .jpg  ->  .jpeg  ->  .webp  ->  emoji.
+
+Archivos usados por los pasos actuales:
+  goku.png        (Bienvenida)
+  vegeta.png      (Estadisticas)
+  bulma.png       (Herramientas)
+  krillin.png     (Clasifica tus documentos)
+  gohan.png       (Crea tu estructura)
+  personaje6.png  (Cierre del tour)
+
+Para agregar mas pasos (hasta 10): edita el arreglo PASOS en tour.js y agrega
+un PNG con el mismo "id", por ejemplo: piccolo.png, trunks.png, ...
+
+IMPORTANTE (texto):
+  Estas imagenes deben contener SOLO al personaje (ideal: PNG transparente,
+  SIN burbujas ni texto). Todo el texto del tour va en HTML real
+  (#tour-title / #tour-text), no dentro de la imagen.
+
+Recomendado:
+  - PNG con fondo TRANSPARENTE (recorta al personaje, sin fondo).
+  - Vertical, aproximadamente 900 x 1200 px.
+
+Herramienta incluida: quitar_fondo.py (en la raiz del proyecto) genera PNG
+transparentes a partir de JPG con fondo claro:
+  python quitar_fondo.py "carpeta_origen" "webapp\static\assets\characters" 38
+
+El personaje se muestra como capa flotante (esquina inferior derecha, junto al
+boton 🐉 Guía) sobre la pagina real.

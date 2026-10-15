@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}DocuNova{% endblock %} · DocuNova</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='5') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='6') }}">
 </head>
 <body>
   <header class="barra">
@@ -54,32 +54,46 @@
   </footer>
 
   {% if usuario %}
-  <div id="tour" class="tour" hidden data-imgbase="{{ url_for('static', filename='tour/') }}">
-    <div class="tour-personaje">
-      <img id="tour-img" class="tour-img" alt="">
-      <span id="tour-emoji" class="tour-emoji"></span>
+  <!-- ================================================================
+       Tour flotante. El PERSONAJE es una imagen independiente
+       (#tour-character-img) y el texto va en HTML real dentro de
+       .tour-dialog-box (nunca quemado dentro de la imagen).
+       ================================================================ -->
+  <div id="tour-modal" class="tour-container" hidden
+       data-imgbase="{{ url_for('static', filename='assets/characters/') }}">
+
+    <!-- Personaje: imagen suelta. Si no existe, se muestra el emoji. -->
+    <div class="tour-character-wrapper">
+      <img id="tour-character-img" class="character-img" alt="">
+      <span id="tour-emoji" class="character-emoji"></span>
     </div>
-    <div class="tour-burbuja">
-      <button id="tour-cerrar" class="tour-cerrar" type="button" aria-label="Cerrar">&times;</button>
-      <span id="tour-quien" class="tour-quien">Guía</span>
-      <h3 id="tour-titulo" class="tour-titulo"></h3>
-      <p id="tour-texto" class="tour-texto"></p>
-      <div class="tour-pie">
-        <span id="tour-paso" class="tour-paso"></span>
-        <div id="tour-nav" class="tour-nav">
-          <button id="tour-atras" class="boton seco mini" type="button">Atrás</button>
-          <button id="tour-sig" class="boton mini" type="button">Siguiente</button>
-        </div>
+
+    <!-- Caja de diálogo con HTML limpio -->
+    <div class="tour-dialog-box">
+      <div class="tour-header">
+        <span id="tour-badge" class="badge-goku">GUÍA</span>
+        <button id="tour-close" class="close-btn" type="button" aria-label="Cerrar">&times;</button>
       </div>
-      <div id="tour-intro" class="tour-intro" style="display:none">
-        <button id="tour-experto" class="boton seco mini" type="button">¡Ya soy un experto!</button>
-        <button id="tour-maestro" class="boton mini" type="button">¡Enséñame, Maestro!</button>
+      <h3 id="tour-title"></h3>
+      <p id="tour-text"></p>
+
+      <!-- Acciones de la pregunta inicial -->
+      <div id="tour-intro" class="tour-actions">
+        <button id="btn-expert" class="btn-secondary" type="button">¡Ya soy un experto!</button>
+        <button id="btn-teach" class="btn-primary" type="button">¡Enséñame, Maestro!</button>
       </div>
-      <div id="tour-puntos" class="tour-puntos"></div>
+
+      <!-- Acciones de cada paso -->
+      <div id="tour-steps" class="tour-actions" style="display:none">
+        <button id="btn-prev" class="btn-secondary" type="button">Atrás</button>
+        <button id="btn-next" class="btn-primary" type="button">Siguiente</button>
+      </div>
+
+      <div id="tour-dots" class="tour-dots"></div>
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='tour.js', v='5') }}"></script>
+  <script src="{{ url_for('static', filename='tour.js', v='6') }}"></script>
   <button id="tour-fab" class="tour-fab" type="button"
           onclick="window.abrirTour && window.abrirTour();">🐉 Guía</button>
   {% endif %}
