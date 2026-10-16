@@ -97,12 +97,18 @@ Los documentos se numeran en este orden:
 | N.º | Documento | ¿Cuándo? |
 |-----|-----------|----------|
 | 001 | ACTA DE COMPROMISO APRENDIZ | todos |
-| 002 | DOCUMENTO DE IDENTIDAD | todos |
+| 002 | DOCUMENTO DE IDENTIDAD (TI/CC/CE/PPT) | todos |
 | 003 | CERTIFICADO ACADEMICO | todos |
 | 004 | CERTIFICADO EPS | todos |
+| 005 | RESULTADOS ICFES (SABER 11) | solo mayores |
 | 005 | TRATAMIENTO DE DATOS | solo menores |
 | 006 | REGISTRO CIVIL | solo menores |
-| 007 | DOCUMENTO TUTOR LEGAL | solo menores |
+| 007 | CEDULA TUTOR LEGAL | solo menores |
+| 008 | RESULTADOS ICFES (SABER 11) | solo menores |
+
+El **ICFES** se guarda como **005** si el aprendiz es mayor de edad y como
+**008** si es menor. La edad se deduce del documento de identidad
+(TI/Registro Civil = menor; CC/CE/PPT = mayor).
 
 Tipos de documento reconocidos: **CC, TI, CE, PP, RC, NIT**.
 

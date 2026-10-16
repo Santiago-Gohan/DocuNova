@@ -60,12 +60,18 @@ SANTIAGO_BARRERA_BARBOSA_CC_1031649321/
 | N.º | Documento | Cuándo |
 |-----|-----------|--------|
 | 001 | Acta de compromiso aprendiz | Todos |
-| 002 | Documento de identidad (cédula/TI) | Todos |
+| 002 | Documento de identidad (TI/CC/CE/PPT) | Todos |
 | 003 | Certificado académico | Todos |
 | 004 | Certificado EPS | Todos |
+| 005 | Resultados ICFES (SABER 11) | Solo mayores |
 | 005 | Tratamiento de datos | Solo menores |
 | 006 | Registro civil | Solo menores |
-| 007 | Documento del tutor legal | Solo menores |
+| 007 | Cédula del tutor legal | Solo menores |
+| 008 | Resultados ICFES (SABER 11) | Solo menores |
+
+> El ICFES se numera **005** si el aprendiz es mayor de edad y **008** si es
+> menor (la edad se deduce del documento de identidad: TI/RC = menor,
+> CC/CE/PPT = mayor).
 
 ## Tecnologías
 

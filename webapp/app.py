@@ -484,9 +484,8 @@ def herramienta_crear():
             nom_carpeta = nomen.nombre_carpeta(nombre, "CC", numero, modo)
             ruta_est = os.path.join(carpeta, nom_carpeta)
             os.makedirs(ruta_est, exist_ok=True)
-            for num, nombre_doc, solo_menores in nomen.DOCS:
-                if solo_menores and not menor:
-                    continue
+            edad = "menor" if menor else "mayor"
+            for num, nombre_doc in nomen.documentos_de(edad):
                 nombre_archivo = nomen.nombre_documento(num, nombre_doc, modo, ".pdf")
                 with open(os.path.join(ruta_est, nombre_archivo), "wb") as f:
                     f.write(b"%PDF-1.4\n% documento de ejemplo\n")
@@ -559,14 +558,23 @@ def _procesar_clasificacion(progreso, d, entrada, subidos, modo, uid, usuario):
     total = len(subidos)
     resultados = []
     salidas = []
+    # Pase 1: leer el texto de cada archivo (para deducir la edad del grupo).
+    textos = []
     for i, (ruta, original) in enumerate(subidos, 1):
-        nombre = os.path.basename(ruta)
-        progreso(int((i - 1) * 90 / total),
+        progreso(int((i - 1) * 45 / total),
                  f"Leyendo {i} de {total}: {original}")
         try:
-            _texto, res = intel.clasificar_archivo(ruta)
+            textos.append(intel.texto_de_archivo(ruta))
         except Exception:  # noqa: BLE001 - archivo ilegible, va sin clasificar
-            res = None
+            textos.append("")
+    edad = intel.detectar_edad("\n".join(textos))
+    # Pase 2: clasificar (la edad decide si el ICFES es 005 o 008).
+    for i, ((ruta, original), texto) in enumerate(zip(subidos, textos), 1):
+        nombre = os.path.basename(ruta)
+        progreso(int(45 + (i - 1) * 45 / total),
+                 f"Clasificando {i} de {total}: {original}")
+        res = (intel.clasificar(texto, edad)
+               or intel.clasificar_desde_nombre(original, edad))
         ext = os.path.splitext(nombre)[1]
         if res:
             num, nom, conf, _ = res
@@ -675,17 +683,18 @@ def _procesar_organizacion(progreso, d, entrada, modo, uid, usuario):
     orden = []
     total = 0
     n_total = len(subidos)
+    # ---- Pase 1: leer el texto y agrupar los documentos por persona ----
     for i, ruta in enumerate(subidos, 1):
         a = os.path.basename(ruta)
         rel = os.path.relpath(ruta, entrada)
         sub = os.path.dirname(rel)
         ext = os.path.splitext(a)[1].lower()
-        progreso(int((i - 1) * 95 / n_total),
+        progreso(int((i - 1) * 45 / n_total),
                  f"Leyendo {i} de {n_total}: {a}")
         try:
-            texto, res = intel.clasificar_archivo(ruta)
+            texto = intel.texto_de_archivo(ruta)
         except Exception:  # noqa: BLE001
-            texto, res = "", None
+            texto = ""
         info = intel.detectar_persona(texto, a)
         # pista: si la carpeta ya venia con una subcarpeta por persona
         if not info and sub and sub != ".":
@@ -698,18 +707,33 @@ def _procesar_organizacion(progreso, d, entrada, modo, uid, usuario):
                                "carpeta": _carpeta_persona(info, modo),
                                "info": info or {}, "docs": []}
             orden.append(clave)
-        if res:
-            num, nom, conf, _ = res
-            nuevo = nomen.nombre_documento(num, nom, modo, ext)
-            tipo = f"{num}_{nom}"
-        else:
-            nuevo = nomen.formatear(a, modo)
-            tipo = "no identificado"
-            conf = "-"
         personas[clave]["docs"].append({"rel": rel, "original": a,
-                                        "nuevo": nuevo, "tipo": tipo,
-                                        "conf": conf, "ok": bool(res)})
+                                        "ext": ext, "texto": texto})
         total += 1
+
+    # ---- Pase 2: clasificar. La edad de cada persona decide el ICFES ----
+    n_personas = len(orden)
+    for j, clave in enumerate(orden, 1):
+        p = personas[clave]
+        edad = intel.detectar_edad("\n".join(doc["texto"] for doc in p["docs"]))
+        for doc in p["docs"]:
+            res = (intel.clasificar(doc["texto"], edad)
+                   or intel.clasificar_desde_nombre(doc["original"], edad))
+            if res:
+                num, nom, conf, _ = res
+                doc["nuevo"] = nomen.nombre_documento(num, nom, modo, doc["ext"])
+                doc["tipo"] = f"{num}_{nom}"
+                doc["conf"] = conf
+                doc["ok"] = True
+            else:
+                doc["nuevo"] = nomen.formatear(doc["original"], modo)
+                doc["tipo"] = "no identificado"
+                doc["conf"] = "-"
+                doc["ok"] = False
+            doc.pop("ext", None)
+            doc.pop("texto", None)
+        progreso(int(45 + j * 50 / n_personas) if n_personas else 95,
+                 f"Clasificando grupo {j} de {n_personas}...")
 
     plan = {"modo": modo, "total": total,
             "personas": [personas[k] for k in orden]}

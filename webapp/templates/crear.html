@@ -23,8 +23,8 @@
   <h2>Documentos que se crean</h2>
   <table>
     <tr><th>N.º</th><th>Documento</th><th>Cuándo</th></tr>
-    {% for num, nombre, menores in docs %}
-    <tr><td>{{ num }}</td><td>{{ nombre }}</td><td>{% if menores %}<span class="pill">solo menores</span>{% else %}todos{% endif %}</td></tr>
+    {% for num, nombre, cuando in docs %}
+    <tr><td>{{ num }}</td><td>{{ nombre }}</td><td>{% if cuando == 'menor' %}<span class="pill">solo menores</span>{% elif cuando == 'mayor' %}<span class="pill">solo mayores</span>{% else %}todos{% endif %}</td></tr>
     {% endfor %}
   </table>
 </div>

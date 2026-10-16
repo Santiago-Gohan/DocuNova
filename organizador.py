@@ -34,7 +34,7 @@ except Exception as _e:
 # CONFIGURACION Y LOGICA (compartida con la version web)
 # ----------------------------------------------------------------------
 from nomenclatura import (DOCS, TIPOS, SIGLAS, SEP,
-                          formatear, limpiar_espacios,
+                          formatear, limpiar_espacios, documentos_de,
                           nombre_carpeta, nombre_documento)
 
 
@@ -197,10 +197,9 @@ class App(tk.Tk):
         resultado = []
         for nombre, numero, menor in ests:
             carpeta = nombre_carpeta(nombre, tipo, numero, modo)
+            edad = "menor" if menor else "mayor"
             docs = []
-            for num, doc, solo_menores in DOCS:
-                if solo_menores and not menor:
-                    continue
+            for num, doc in documentos_de(edad):
                 if self.var_como.get() == "pdf":
                     docs.append(nombre_documento(num, doc, modo, ".pdf"))
                 else:

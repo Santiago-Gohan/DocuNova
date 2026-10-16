@@ -186,11 +186,17 @@ def _ocr_pagina(page, dpi=200):
     tmp = os.path.join(TMP, f"_pag_{os.getpid()}_{id(page) % 100000}.png")
     pix = page.get_pixmap(dpi=dpi)
     pix.save(tmp)
-    txt = _ocr_archivo(tmp)
     try:
-        os.remove(tmp)
-    except OSError:
-        pass
+        txt = _ocr_archivo(tmp)                     # modo bloque uniforme
+        if len(txt.strip()) < 20:
+            alt = _ocr_archivo(tmp, psm="3")        # modo automatico
+            if len(alt.strip()) > len(txt.strip()):
+                txt = alt
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
     return txt
 
 
@@ -229,51 +235,93 @@ def texto_de_archivo(ruta, max_paginas=2, dpi=200):
 # ----------------------------------------------------------------------
 REGLAS = [
     ("001", "ACTA DE COMPROMISO APRENDIZ", [
-        ("acta de compromiso", 6), ("acta de compromisos", 6),
-        ("compromisos como aprendiz", 7), ("compromiso como aprendiz", 7),
+        ("acta de compromiso", 7), ("compromiso del aprendiz", 7),
+        ("deberes del aprendiz", 7), ("compromisos como aprendiz", 7),
         ("acta de compromiso aprendiz", 7), ("compromiso aprendiz", 5),
-        ("compromiso", 3), ("clausulas", 2), ("acuerdan", 2),
-        ("entre las partes", 2), ("obligaciones", 2), ("aprendiz", 2),
+        ("compromiso", 3), ("aprendiz", 2), ("sena", 2),
+        ("clausulas", 2), ("acuerdan", 2), ("entre las partes", 2),
+        ("obligaciones", 2),
     ]),
     ("002", "DOCUMENTO DE IDENTIDAD", [
-        ("cedula de ciudadania", 7), ("cedula", 4), ("tarjeta de identidad", 6),
+        ("cedula de ciudadania", 7), ("tarjeta de identidad", 7),
+        ("no. de ti", 5), ("no de ti", 5), ("numero de ti", 5),
+        ("cedula de extranjeria", 7), ("permiso por proteccion temporal", 7),
         ("registraduria nacional", 4), ("documento de identidad", 4),
-        ("nuip", 3), ("numero de identificacion", 3), ("republica de colombia", 2),
+        ("cedula", 4), ("ppt", 3), ("nuip", 3),
+        ("fecha de expedicion", 3), ("republica de colombia", 2),
         ("fecha de nacimiento", 1),
     ]),
     ("003", "CERTIFICADO ACADEMICO", [
-        ("certificado academico", 7), ("acta de grado", 6), ("certificado de estudios", 6),
-        ("institucion educativa", 4), ("diploma", 4), ("bachiller", 3),
-        ("secretaria de educacion", 3), ("grado", 2), ("colegio", 2),
-        ("certifica que", 3), ("educacion media", 3), ("jornada", 1),
+        ("certifica que", 6), ("curso y aprobo", 7), ("cursó y aprobó", 7),
+        ("acta de grado", 6), ("certificado academico", 7),
+        ("certificado de estudios", 6), ("institucion educativa", 5),
+        ("bachiller", 5), ("titulo de", 4), ("diploma", 4),
+        ("secretaria de educacion", 3), ("educacion media", 3),
+        ("grado", 2), ("colegio", 2), ("jornada", 1),
     ]),
     ("004", "CERTIFICADO EPS", [
-        ("entidad promotora de salud", 7), ("certificado eps", 6),
-        ("certificado de salud", 6), ("certificado medico", 5), ("eps", 4),
-        ("afiliacion", 4), ("sisben", 4), ("regimen subsidiado", 3),
-        ("regimen contributivo", 3), ("cotizante", 3), ("afiliado", 3),
+        ("entidad promotora de salud", 7), ("certificado de afiliacion", 7),
+        ("certificado eps", 6), ("certificado de salud", 6),
+        ("certificado medico", 5), ("eps", 4), ("sisben", 4),
+        ("estado: activo", 4), ("estado activo", 3),
+        ("regimen contributivo", 3), ("regimen subsidiado", 3),
+        ("afiliacion", 3), ("cotizante", 3), ("afiliado", 3),
         ("promotora de salud", 3), ("fosyga", 2),
     ]),
     ("005", "TRATAMIENTO DE DATOS", [
-        ("tratamiento de datos", 7), ("datos personales", 4), ("habeas data", 6),
-        ("autorizacion", 3), ("ley 1581", 5), ("consentimiento", 3),
-        ("autorizo", 3), ("finalidad del tratamiento", 5),
+        ("autorizacion de tratamiento", 7), ("tratamiento de datos", 7),
+        ("consentimiento informado", 6), ("habeas data", 6), ("ley 1581", 5),
+        ("finalidad del tratamiento", 5), ("datos personales", 4),
+        ("autorizacion", 3), ("consentimiento", 3), ("autorizo", 3),
+    ]),
+    ("ICFES", "RESULTADOS ICFES", [
+        ("icfes", 8), ("puntaje global", 7), ("saber 11", 7),
+        ("prueba saber", 6), ("resultados de la aplicacion", 6),
+        ("reporte de resultados", 5), ("resultados saber", 5),
     ]),
     ("006", "REGISTRO CIVIL", [
-        ("registro civil", 8), ("registro civil de nacimiento", 8),
-        ("notaria", 3), ("indicativo serial", 4), ("nacimiento", 3),
-        ("inscripcion de nacimiento", 5),
+        ("registro civil de nacimiento", 8), ("registro civil", 8),
+        ("indicativo serial", 5), ("oficina de registro", 5),
+        ("datos del inscrito", 5), ("inscripcion de nacimiento", 5),
+        ("nombre del padre", 4), ("nombre de la madre", 4),
+        ("nacimiento", 3), ("notaria", 3),
     ]),
-    ("007", "DOCUMENTO TUTOR LEGAL", [
-        ("tutor legal", 7), ("representante legal", 5), ("acudiente", 6),
-        ("autorizacion del acudiente", 6), ("padre de familia", 3),
-        ("autorizacion del tutor", 6),
+    ("007", "CEDULA TUTOR LEGAL", [
+        ("tutor legal", 8), ("acudiente", 7), ("autorizacion del acudiente", 7),
+        ("autorizacion del tutor", 7), ("representante legal", 6),
+        ("padre de familia", 5), ("madre de familia", 5),
     ]),
 ]
 
 
-def clasificar(texto):
-    """Devuelve (numero, nombre, confianza, coincidencias) o None."""
+def detectar_edad(texto):
+    """Devuelve 'menor', 'mayor' o None segun el documento de identidad.
+
+    Tarjeta de identidad / registro civil -> menor.
+    Cedula de ciudadania / extranjeria / PPT -> mayor.
+    """
+    t = normalizar(texto or "")
+    if not t:
+        return None
+    if any(p in t for p in ("tarjeta de identidad", "no. de ti", "no de ti",
+                            "numero de ti", "registro civil")):
+        return "menor"
+    if any(p in t for p in ("cedula de ciudadania", "cedula de extranjeria",
+                            "permiso por proteccion temporal")):
+        return "mayor"
+    return None
+
+
+def numero_icfes(edad):
+    """El ICFES es 008 para menores y 005 para mayores."""
+    return "008" if edad == "menor" else "005"
+
+
+def clasificar(texto, edad=None):
+    """Devuelve (numero, nombre, confianza, coincidencias) o None.
+
+    edad: 'menor' | 'mayor' | None -> se usa para ubicar el ICFES (008 o 005).
+    """
     t = normalizar(texto)
     if len(t) < 8:
         return None
@@ -286,7 +334,7 @@ def clasificar(texto):
                 score += peso
                 hits.append(palabra)
         if score > 0:
-            resultados.append((num, nombre, score, hits))
+            resultados.append([num, nombre, score, hits])
     if not resultados:
         return None
     resultados.sort(key=lambda r: r[2], reverse=True)
@@ -299,10 +347,13 @@ def clasificar(texto):
         conf = "MEDIA"
     else:
         conf = "BAJA"
-    return mejor[0], mejor[1], conf, mejor[3]
+    num, nombre = mejor[0], mejor[1]
+    if num == "ICFES":
+        num = numero_icfes(edad)
+    return num, nombre, conf, mejor[3]
 
 
-def clasificar_desde_nombre(nombre):
+def clasificar_desde_nombre(nombre, edad=None):
     """Clasifica un documento usando su NOMBRE de archivo como pista.
 
     Sirve cuando el PDF/imagen no tiene texto util (escaneo sin OCR) pero el
@@ -310,19 +361,22 @@ def clasificar_desde_nombre(nombre):
     """
     base = os.path.splitext(os.path.basename(nombre or ""))[0]
     base = re.sub(r"[_\-\.]+", " ", base)
-    return clasificar(base)
+    return clasificar(base, edad)
 
 
-def clasificar_archivo(ruta):
+def clasificar_archivo(ruta, edad=None):
     """Lee un archivo (PDF/imagen) y devuelve el texto y la clasificacion.
 
     Si el texto no alcanza para clasificar, se intenta con el nombre del
-    archivo como segunda pista.
+    archivo como segunda pista. Si no se pasa 'edad', se intenta deducir del
+    propio texto (util para ubicar el ICFES en 005 o 008).
     """
     texto = texto_de_archivo(ruta)
-    res = clasificar(texto)
+    if edad is None:
+        edad = detectar_edad(texto)
+    res = clasificar(texto, edad)
     if not res:
-        res = clasificar_desde_nombre(os.path.basename(ruta))
+        res = clasificar_desde_nombre(os.path.basename(ruta), edad)
     return texto, res
 
 
@@ -330,10 +384,15 @@ def clasificar_archivo(ruta):
 # ANALISIS DE UN PDF GRANDE, PAGINA POR PAGINA
 # ----------------------------------------------------------------------
 def analizar_pdf_paginas(ruta, max_paginas=None, dpi=200, progreso=None, on_pagina=None):
-    """Devuelve una lista con el tipo detectado en cada pagina del PDF."""
+    """Devuelve una lista con el tipo detectado en cada pagina del PDF.
+
+    Primero se lee el texto de todas las paginas y se deduce la edad (menor o
+    mayor) a partir del documento de identidad; eso decide si el ICFES va como
+    008 (menor) o como 005 (mayor).
+    """
     doc = pymupdf.open(ruta)
     total = len(doc)
-    out = []
+    textos = []
     try:
         for i, page in enumerate(doc):
             if max_paginas is not None and i >= max_paginas:
@@ -343,22 +402,51 @@ def analizar_pdf_paginas(ruta, max_paginas=None, dpi=200, progreso=None, on_pagi
             t = page.get_text().strip()
             if len(t) < 20:
                 t = _ocr_pagina(page, dpi)
-            res = clasificar(t)
-            primera = next((ln.strip() for ln in t.splitlines() if ln.strip()), "")
-            info = {
-                "pagina": i + 1,
-                "texto": t,
-                "num": res[0] if res else "",
-                "tipo": f"{res[0]}_{res[1]}" if res else "",
-                "conf": res[2] if res else "",
-                "inicio": primera[:70],
-            }
-            out.append(info)
-            if on_pagina:
-                on_pagina(info)
+            textos.append(t)
     finally:
         doc.close()
+
+    edad = detectar_edad("\n".join(textos))
+    out = []
+    for i, t in enumerate(textos):
+        res = clasificar(t, edad)
+        primera = next((ln.strip() for ln in t.splitlines() if ln.strip()), "")
+        info = {
+            "pagina": i + 1,
+            "texto": t,
+            "num": res[0] if res else "",
+            "tipo": f"{res[0]}_{res[1]}" if res else "",
+            "conf": res[2] if res else "",
+            "inicio": primera[:70],
+        }
+        out.append(info)
+        if on_pagina:
+            on_pagina(info)
+    marcar_tutor(out, edad)
     return out
+
+
+def marcar_tutor(paginas, edad=None):
+    """Marca como cedula del tutor (007) los documentos de identidad (002)
+    adicionales. En un set de menor solo hay una identificacion propia; si
+    aparece otra hoja de identidad, es del acudiente.
+
+    Las paginas consecutivas del mismo documento cuentan como una sola.
+    """
+    if edad is None:
+        edad = detectar_edad("\n".join(p.get("texto", "") for p in paginas))
+    if edad == "mayor":
+        return
+    originales = [p.get("num") for p in paginas]
+    identidades = 0
+    for i, p in enumerate(paginas):
+        if originales[i] != "002":
+            continue
+        if i == 0 or originales[i - 1] != "002":
+            identidades += 1
+        if identidades > 1:
+            p["num"] = "007"
+            p["tipo"] = "007_CEDULA TUTOR LEGAL"
 
 
 def agrupar_paginas(paginas):
@@ -376,6 +464,18 @@ def agrupar_paginas(paginas):
             actual["paginas"].append(p["pagina"])
     if actual:
         grupos.append(actual)
+
+    # Tutor legal: la cedula del acudiente que acompana los papeles de un menor.
+    marcar_tutor(paginas)
+
+    # Los grupos se construyen con el tipo de la primera pagina; si el tutor
+    # reasigno numeros, hay que rehacerlos para que el nombre del archivo
+    # coincida con el tipo corregido.
+    for g in grupos:
+        p0 = next((p for p in paginas if p["pagina"] == g["paginas"][0]), None)
+        if p0 is not None:
+            g["num"] = p0.get("num", "")
+            g["tipo"] = p0.get("tipo", "") or "SIN_IDENTIFICAR"
     return grupos
 
 
@@ -454,6 +554,9 @@ PALABRAS_PROHIBIDAS = {
     "nombre", "firma", "codigo", "pagina", "senor", "senora", "adjunto", "anexo",
     "afiliado", "cotizante", "regimen", "subsidiado", "contributivo", "diploma",
     "bachiller", "jornada", "media", "acta", "clausulas", "partes", "habeas",
+    "icfes", "saber", "puntaje", "global", "prueba", "reporte", "aplicacion",
+    "extranjeria", "temporal", "proteccion", "inscrito", "indicativo", "serial",
+    "oficina", "madre", "padre", "ppt", "aprendiz", "deberes", "sena",
     # etiquetas de formulario y conectivos
     "nombre", "nombres", "apellido", "apellidos", "senor", "senora", "señor", "señora",
     "sr", "sra",
