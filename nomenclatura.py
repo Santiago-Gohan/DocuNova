@@ -8,7 +8,7 @@ import re
 
 # (numero, nombre del documento, solo_menores)
 DOCS = [
-    ("001", "ACTA DE COMPROMISO", False),
+    ("001", "ACTA DE COMPROMISO APRENDIZ", False),
     ("002", "DOCUMENTO DE IDENTIDAD", False),
     ("003", "CERTIFICADO ACADEMICO", False),
     ("004", "CERTIFICADO EPS", False),

@@ -228,10 +228,12 @@ def texto_de_archivo(ruta, max_paginas=2, dpi=200):
 # (numero, nombre, [(palabra clave, peso), ...])
 # ----------------------------------------------------------------------
 REGLAS = [
-    ("001", "ACTA DE COMPROMISO", [
+    ("001", "ACTA DE COMPROMISO APRENDIZ", [
         ("acta de compromiso", 6), ("acta de compromisos", 6),
+        ("compromisos como aprendiz", 7), ("compromiso como aprendiz", 7),
+        ("acta de compromiso aprendiz", 7), ("compromiso aprendiz", 5),
         ("compromiso", 3), ("clausulas", 2), ("acuerdan", 2),
-        ("entre las partes", 2), ("obligaciones", 2),
+        ("entre las partes", 2), ("obligaciones", 2), ("aprendiz", 2),
     ]),
     ("002", "DOCUMENTO DE IDENTIDAD", [
         ("cedula de ciudadania", 7), ("cedula", 4), ("tarjeta de identidad", 6),
@@ -246,7 +248,8 @@ REGLAS = [
         ("certifica que", 3), ("educacion media", 3), ("jornada", 1),
     ]),
     ("004", "CERTIFICADO EPS", [
-        ("entidad promotora de salud", 7), ("certificado eps", 6), ("eps", 4),
+        ("entidad promotora de salud", 7), ("certificado eps", 6),
+        ("certificado de salud", 6), ("certificado medico", 5), ("eps", 4),
         ("afiliacion", 4), ("sisben", 4), ("regimen subsidiado", 3),
         ("regimen contributivo", 3), ("cotizante", 3), ("afiliado", 3),
         ("promotora de salud", 3), ("fosyga", 2),
@@ -299,10 +302,28 @@ def clasificar(texto):
     return mejor[0], mejor[1], conf, mejor[3]
 
 
+def clasificar_desde_nombre(nombre):
+    """Clasifica un documento usando su NOMBRE de archivo como pista.
+
+    Sirve cuando el PDF/imagen no tiene texto util (escaneo sin OCR) pero el
+    archivo viene bien nombrado, p. ej. "CERTIFICADO_DE_SALUD_YEIMY.pdf".
+    """
+    base = os.path.splitext(os.path.basename(nombre or ""))[0]
+    base = re.sub(r"[_\-\.]+", " ", base)
+    return clasificar(base)
+
+
 def clasificar_archivo(ruta):
-    """Lee un archivo (PDF/imagen) y devuelve el texto y la clasificacion."""
+    """Lee un archivo (PDF/imagen) y devuelve el texto y la clasificacion.
+
+    Si el texto no alcanza para clasificar, se intenta con el nombre del
+    archivo como segunda pista.
+    """
     texto = texto_de_archivo(ruta)
-    return texto, clasificar(texto)
+    res = clasificar(texto)
+    if not res:
+        res = clasificar_desde_nombre(os.path.basename(ruta))
+    return texto, res
 
 
 # ----------------------------------------------------------------------

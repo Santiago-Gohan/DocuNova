@@ -96,7 +96,7 @@ Los documentos se numeran en este orden:
 
 | N.º | Documento | ¿Cuándo? |
 |-----|-----------|----------|
-| 001 | ACTA DE COMPROMISO | todos |
+| 001 | ACTA DE COMPROMISO APRENDIZ | todos |
 | 002 | DOCUMENTO DE IDENTIDAD | todos |
 | 003 | CERTIFICADO ACADEMICO | todos |
 | 004 | CERTIFICADO EPS | todos |

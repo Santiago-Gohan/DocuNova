@@ -25,7 +25,7 @@ Ejemplo de resultado:
 
 ```
 SANTIAGO_BARRERA_BARBOSA_CC_1031649321/
-  001_ACTA_DE_COMPROMISO.pdf
+  001_ACTA_DE_COMPROMISO_APRENDIZ.pdf
   002_DOCUMENTO_DE_IDENTIDAD.pdf
   003_CERTIFICADO_ACADEMICO.pdf
   004_CERTIFICADO_EPS.pdf
@@ -59,7 +59,7 @@ SANTIAGO_BARRERA_BARBOSA_CC_1031649321/
 
 | N.º | Documento | Cuándo |
 |-----|-----------|--------|
-| 001 | Acta de compromiso | Todos |
+| 001 | Acta de compromiso aprendiz | Todos |
 | 002 | Documento de identidad (cédula/TI) | Todos |
 | 003 | Certificado académico | Todos |
 | 004 | Certificado EPS | Todos |
