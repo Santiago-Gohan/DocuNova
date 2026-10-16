@@ -13,7 +13,10 @@ import tempfile
 import subprocess
 import unicodedata
 import urllib.request
+import uuid
+import threading
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import pymupdf
@@ -120,7 +123,7 @@ def ocr_estado():
     d = _dir_tessdata()
     return {"binario": _binario_ok(), "spa": d is not None,
             "tessdata_dir": d, "exe": TESS_EXE,
-            "local": _dir_descarga()}
+            "local": _dir_descarga(), "workers": WORKERS_OCR}
 
 
 # ----------------------------------------------------------------------
@@ -181,23 +184,86 @@ def _ocr_archivo(ruta, idioma="spa", psm="6"):
         return ""
 
 
-def _ocr_pagina(page, dpi=200):
+def _render_pagina(page, dpi=200, indice=0):
+    """Renderiza la pagina a PNG y devuelve la ruta del archivo temporal.
+
+    PyMuPDF NO es seguro entre hilos, asi que el render se hace siempre en un
+    solo hilo; el OCR (que es un subproceso) si se puede paralelizar.
+    """
     os.makedirs(TMP, exist_ok=True)
-    tmp = os.path.join(TMP, f"_pag_{os.getpid()}_{id(page) % 100000}.png")
-    pix = page.get_pixmap(dpi=dpi)
-    pix.save(tmp)
+    tmp = os.path.join(TMP, f"_pag_{os.getpid()}_{indice}_{uuid.uuid4().hex[:8]}.png")
+    page.get_pixmap(dpi=dpi).save(tmp)
+    return tmp
+
+
+def _ocr_png(tmp):
+    """OCR de un PNG ya renderizado, con reintento en modo automatico."""
+    txt = _ocr_archivo(tmp)                     # modo bloque uniforme
+    if len(txt.strip()) < 20:
+        alt = _ocr_archivo(tmp, psm="3")        # modo automatico
+        if len(alt.strip()) > len(txt.strip()):
+            txt = alt
+    return txt
+
+
+def _ocr_tmp(tmp):
+    """Aplica OCR a un PNG temporal y lo borra (seguro para usar en hilos)."""
     try:
-        txt = _ocr_archivo(tmp)                     # modo bloque uniforme
-        if len(txt.strip()) < 20:
-            alt = _ocr_archivo(tmp, psm="3")        # modo automatico
-            if len(alt.strip()) > len(txt.strip()):
-                txt = alt
+        return _ocr_png(tmp)
     finally:
         try:
             os.remove(tmp)
         except OSError:
             pass
-    return txt
+
+
+def _ocr_pagina(page, dpi=200):
+    return _ocr_tmp(_render_pagina(page, dpi))
+
+
+# Tesseract usa todos los nucleos en cada llamada; para paralelizar de verdad
+# cada pagina se procesa en un hilo y se limita el lote al numero de nucleos.
+# En entornos con poca memoria RAM (Render free) conviene bajarlo con la
+# variable de entorno DOCUNOVA_OCR_WORKERS.
+def _workers_ocr():
+    v = os.environ.get("DOCUNOVA_OCR_WORKERS")
+    if v and v.strip().isdigit():
+        return max(1, int(v))
+    return max(1, min(4, (os.cpu_count() or 1) - 1))
+
+
+WORKERS_OCR = _workers_ocr()
+
+
+def _ocr_paginas(pares, dpi=200, al_completar=None):
+    """OCR de varias paginas: render secuencial + OCR en paralelo.
+
+    pares: lista de (indice, page). Devuelve {indice: texto}. Las paginas se
+    procesan en lotes pequenos para no llenar el disco con muchos PNG.
+    `al_completar()` se llama una vez por pagina terminada (para el progreso).
+    """
+    resultados = {}
+    if not pares:
+        return resultados
+    lote = max(WORKERS_OCR, 1)
+    for inicio in range(0, len(pares), lote):
+        grupo = pares[inicio:inicio + lote]
+        temporales = {idx: _render_pagina(page, dpi, idx) for idx, page in grupo}
+        if WORKERS_OCR <= 1 or len(grupo) == 1:
+            for idx, _page in grupo:
+                resultados[idx] = _ocr_tmp(temporales[idx])
+                if al_completar:
+                    al_completar()
+        else:
+            with ThreadPoolExecutor(max_workers=WORKERS_OCR) as ex:
+                futuros = {ex.submit(_ocr_tmp, temporales[idx]): idx
+                           for idx, _page in grupo}
+                for fut in as_completed(futuros):
+                    idx = futuros[fut]
+                    resultados[idx] = fut.result()
+                    if al_completar:
+                        al_completar()
+    return resultados
 
 
 # ----------------------------------------------------------------------
@@ -248,8 +314,10 @@ REGLAS = [
         ("cedula de extranjeria", 7), ("permiso por proteccion temporal", 7),
         ("registraduria nacional", 4), ("documento de identidad", 4),
         ("cedula", 4), ("ppt", 3), ("nuip", 3),
-        ("fecha de expedicion", 3), ("republica de colombia", 2),
-        ("fecha de nacimiento", 1),
+        ("fecha de expedicion", 3), ("lugar de expedicion", 4),
+        ("registrador nacional", 4), ("registrador", 3),
+        ("republica de colombia", 2), ("fecha de nacimiento", 1),
+        ("ciudadania", 3), ("ciudadana", 3),
     ]),
     ("003", "CERTIFICADO ACADEMICO", [
         ("certifica que", 6), ("curso y aprobo", 7), ("cursó y aprobó", 7),
@@ -269,9 +337,10 @@ REGLAS = [
         ("promotora de salud", 3), ("fosyga", 2),
     ]),
     ("005", "TRATAMIENTO DE DATOS", [
-        ("autorizacion de tratamiento", 7), ("tratamiento de datos", 7),
-        ("consentimiento informado", 6), ("habeas data", 6), ("ley 1581", 5),
-        ("finalidad del tratamiento", 5), ("datos personales", 4),
+        ("tratamiento de datos menor", 12), ("autorizacion de tratamiento", 8),
+        ("tratamiento de datos", 8), ("consentimiento informado", 6),
+        ("habeas data", 6), ("ley 1581", 6),
+        ("finalidad del tratamiento", 5), ("datos personales", 5),
         ("autorizacion", 3), ("consentimiento", 3), ("autorizo", 3),
     ]),
     ("ICFES", "RESULTADOS ICFES", [
@@ -392,17 +461,32 @@ def analizar_pdf_paginas(ruta, max_paginas=None, dpi=200, progreso=None, on_pagi
     """
     doc = pymupdf.open(ruta)
     total = len(doc)
-    textos = []
+    if max_paginas is not None:
+        total = min(total, max_paginas)
+    textos = [""] * total
+    pendientes = []
+    hechas = [0]
+    candado = threading.Lock()
+
+    def al_completar():
+        with candado:
+            hechas[0] += 1
+            n = hechas[0]
+        if progreso:
+            progreso(n, total)
+
     try:
-        for i, page in enumerate(doc):
-            if max_paginas is not None and i >= max_paginas:
-                break
-            if progreso:
-                progreso(i + 1, total)
+        for i in range(total):
+            page = doc[i]
             t = page.get_text().strip()
             if len(t) < 20:
-                t = _ocr_pagina(page, dpi)
-            textos.append(t)
+                pendientes.append((i, page))
+            else:
+                textos[i] = t
+                al_completar()
+        lecturas = _ocr_paginas(pendientes, dpi=dpi, al_completar=al_completar)
+        for i, t in lecturas.items():
+            textos[i] = t
     finally:
         doc.close()
 

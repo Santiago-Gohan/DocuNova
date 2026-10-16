@@ -3,7 +3,8 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     ENTORNO=produccion \
-    PORT=5000
+    PORT=5000 \
+    DOCUNOVA_OCR_WORKERS=2
 
 # Tesseract (OCR) + idioma espanol del sistema (no depende de descargar de GitHub)
 RUN apt-get update && apt-get install -y --no-install-recommends \
