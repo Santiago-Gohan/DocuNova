@@ -394,7 +394,29 @@ def separar_pdf(ruta, carpeta_salida, grupos, modo="upper", prefijo=None):
 # ----------------------------------------------------------------------
 RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
-# Palabras que NO forman parte de un nombre (titulos de documentos, etc.)
+# Etiquetas de documentos tipo tabla (ej. certificado BDUA/ADRES): la
+# etiqueta va en una linea y el valor en la siguiente.
+RE_TIPO = re.compile(
+    r"TIPO DE\s+IDENTIFICACI[OÓ]N\s*:?\s*([A-Za-z]{2,4})", re.I)
+RE_DNI_ETQ = re.compile(
+    r"N[ÚU]MERO DE\s+IDENTIFICACI[OÓ]N?\s*:?\s*([\d][\d.\s]{4,18}\d)", re.I)
+RE_DNI_TOK = re.compile(
+    r"\b(?:C\.?\s?C\.?|CEDULA(?:\s+DE\s+CIUDADAN[IÍ]A)?|T\.?\s?I\.?|"
+    r"TARJETA DE IDENTIDAD|C\.?\s?E\.?|PASAPORTE|NIT)\b"
+    r"[\s:.\-]*([\d][\d.\s]{4,18}\d)", re.I)
+
+# Etiquetas que marcan el fin del valor de un nombre.
+_FIN_ETQ = (
+    r"(?:FECHA(?:\s+DE\s+NACIMIENTO)?|DEPARTAMENTO|MUNICIPIO|SEXO|"
+    r"DIRECCI[OÓ]N|CORREO|E-?MAIL|TEL[EÉ]FONO|CELULAR|ESTADO|ENTIDAD|"
+    r"R[EÉ]GIMEN|REGIMEN|TIPO DE|N[ÚU]MERO DE|NOMBRES?|APELLIDOS?|PERIODO|"
+    r"DATOS|FECHA DE AFILIACI[OÓ]N|FECHA DE FINALIZACI[OÓ]N)"
+)
+RE_NOMBRES = re.compile(r"\bNOMBRES?\b\s*:?\s*(.*?)\s*(?=" + _FIN_ETQ + r"|$)", re.I)
+RE_APELLIDOS = re.compile(r"\bAPELLIDOS?\b\s*:?\s*(.*?)\s*(?=" + _FIN_ETQ + r"|$)", re.I)
+
+# Palabras que NO forman parte de un nombre (titulos, encabezados de
+# entidad, lenguaje legal, etc.).
 PALABRAS_PROHIBIDAS = {
     "acta", "compromiso", "compromisos", "documento", "documentos", "identidad",
     "certificado", "certificacion", "academico", "academica", "estudios", "grado",
@@ -411,7 +433,88 @@ PALABRAS_PROHIBIDAS = {
     "sr", "sra",
     "de", "la", "el", "los", "las", "del", "al", "y", "en", "con", "por", "para",
     "que", "se", "un", "una", "cc", "ti", "ce", "rc", "pp", "nit", "ci", "dv",
+    # encabezados de entidad y lenguaje legal (certificado BDUA/ADRES, etc.)
+    "administradora", "recursos", "sistema", "general", "seguridad", "social",
+    "ministerio", "proteccion", "adres", "bdua", "afiliados", "unica", "unico",
+    "resolucion", "resoluciones", "normativa", "anexo", "tecnico", "tecnicos",
+    "lineamientos", "especificaciones", "operativas", "prestadores", "usuarios",
+    "servicio", "servicios", "calidad", "informacion", "reportada", "fuente",
+    "base", "bases", "afiliacion", "consulta", "resultados", "columnas",
+    "tipo", "estado", "regimen", "departamento", "municipio", "nueva", "nuevo",
+    "cabeza", "familia", "efectiva", "finalizacion", "periodo", "impresion",
+    "estacion", "origen", "ventana", "imprimir", "cerrar", "responsable",
+    "corresponde", "directamente", "cumplimiento", "marco", "definido", "nunca",
+    "motivo", "denegar", "prestacion", "necesite", "retirarse", "trasladarse",
+    "modificar", "actualizaciones", "dependen", "netamente", "solicitud",
+    "escalada", "presenta", "vinculado", "genera", "aclara", "contenido",
+    "reflejo", "reportado", "entidades", "adopta", "lineamiento",
 }
+
+
+def _limpiar_valor(v):
+    v = (v or "").strip()
+    v = re.sub(r"^[:\-\.\s]+", "", v)
+    v = re.sub(r"[:\-\.\s]+$", "", v)
+    v = re.sub(r"\s{2,}", " ", v)
+    return v.strip()
+
+
+# Token de tipo de documento que puede colarse al final del nombre.
+_RE_TOKEN_ID = re.compile(
+    r"(?:C\.?\s?C|T\.?\s?I|C\.?\s?E|P\.?\s?P|R\.?\s?C|N\.?\s?I\.?\s?T|"
+    r"CEDULA|CIUDADANIA|IDENTIFICACION|PASAPORTE|EXTRA NJERIA|EXTRANJERIA)\.?",
+    re.I)
+
+
+def _limpiar_valor_nombre(v):
+    v = _limpiar_valor(v)
+    v = re.split(r"\d", v)[0]        # corta si empieza un numero (cedula, fecha, ...)
+    toks = v.split()
+    while toks and _RE_TOKEN_ID.fullmatch(toks[-1]):
+        toks.pop()
+    return _limpiar_valor(" ".join(toks))
+
+
+def _nombre_etiquetado(plano):
+    """Extrae NOMBRES + APELLIDOS de documentos con etiquetas."""
+    partes = []
+    for rx in (RE_NOMBRES, RE_APELLIDOS):
+        m = rx.search(plano)
+        if not m:
+            continue
+        v = _limpiar_valor_nombre(m.group(1))
+        if v:
+            partes.append(v)
+    nombre = re.sub(r"\s{2,}", " ", " ".join(partes)).strip()
+    if not nombre or re.search(r"\d", nombre):
+        return None
+    palabras = nombre.split()
+    if 2 <= len(palabras) <= 6:
+        return " ".join(palabras)
+    return None
+
+
+def _dni_desde_etiqueta(plano):
+    for rx in (RE_DNI_ETQ, RE_DNI_TOK):
+        m = rx.search(plano)
+        if m:
+            d = re.sub(r"\D", "", m.group(1))
+            if 6 <= len(d) <= 12:
+                return d
+    return None
+
+
+def _dni_generico(texto):
+    """Numero de documento sin etiqueta: evita mezclar fechas o IPs."""
+    m = re.search(r"\b\d{1,3}(?:\.\d{3}){1,4}\b", texto)
+    if m:
+        d = m.group(0).replace(".", "")
+        if 6 <= len(d) <= 12:
+            return d
+    cands = re.findall(r"\b\d{6,11}\b", texto)
+    if cands:
+        return Counter(cands).most_common(1)[0][0]
+    return None
 
 
 def _detectar_nombre(texto):
@@ -465,45 +568,60 @@ def detectar_tipo_documento(texto):
     """Detecta el tipo de documento de identidad (CC, TI, CE, RC, PP, NIT)."""
     if not texto:
         return None
-    t = normalizar(texto)  # minusculas, sin tildes, puntuacion -> espacio
+    # 1) etiqueta explicita: "TIPO DE IDENTIFICACION: CC"
+    plano = re.sub(r"\s+", " ", texto)
+    mt = RE_TIPO.search(plano)
+    if mt:
+        tok = mt.group(1).upper()
+        if tok in ("CC", "TI", "CE", "RC", "PP", "NIT"):
+            return tok
+    # 2) palabras clave (cedula de ciudadania, tarjeta de identidad, ...)
+    t = normalizar(texto)
     claves = [
-        ("CC", [("cedula de ciudadania", 6), ("c c", 2)]),
-        ("TI", [("tarjeta de identidad", 6), ("t i", 2)]),
-        ("CE", [("cedula de extranjeria", 6), ("cedula de extranjero", 6), ("c e", 2)]),
-        ("RC", [("registro civil", 5), ("r c", 2)]),
+        ("CC", [("cedula de ciudadania", 6), ("cedula ciudadania", 6)]),
+        ("TI", [("tarjeta de identidad", 6)]),
+        ("CE", [("cedula de extranjeria", 6), ("cedula de extranjero", 6)]),
+        ("RC", [("registro civil", 5)]),
         ("PP", [("pasaporte", 5)]),
-        ("NIT", [("nit", 4)]),
+        ("NIT", [(" nit", 3)]),
     ]
     puntaje = {}
     for tipo, alternativas in claves:
-        s = 0
-        for palabra, peso in alternativas:
-            if palabra in t:
-                s += peso
+        s = sum(peso for palabra, peso in alternativas if palabra in t)
         if s:
             puntaje[tipo] = s
-    if not puntaje:
-        return None
-    return max(puntaje, key=puntaje.get)
+    if puntaje:
+        return max(puntaje, key=puntaje.get)
+    # 3) token suelto (con o sin puntos): CC, C.C., TI, T.I., CE, C.E., ...
+    patrones = [
+        ("CC", r"C\.?\s?C\.?"),
+        ("TI", r"T\.?\s?I\.?"),
+        ("CE", r"C\.?\s?E\.?"),
+        ("PP", r"P\.?\s?P\.?"),
+        ("RC", r"R\.?\s?C\.?"),
+        ("NIT", r"N\.?\s?I\.?\s?T\.?"),
+    ]
+    for tok, pat in patrones:
+        if re.search(r"(?<![A-Za-z])" + pat + r"(?![A-Za-z])", texto):
+            return tok
+    return None
 
 
 def detectar_persona(texto, nombre_archivo=""):
     """Devuelve {'nombre','dni','tipo','email'} o None si no reconoce a la persona."""
     info = {"nombre": None, "dni": None, "tipo": None, "email": None}
     texto = texto or ""
+    plano = re.sub(r"\s+", " ", texto)
 
     m = RE_EMAIL.search(texto)
     if m:
         info["email"] = m.group(0).lower()
 
-    # numero de documento: 6 a 11 digitos (quitando separadores de miles)
-    limpio = re.sub(r"([.\s])(?=\d)", "", texto)
-    numeros = re.findall(r"\b\d{6,11}\b", limpio)
-    if numeros:
-        info["dni"] = Counter(numeros).most_common(1)[0][0]
-
     info["tipo"] = detectar_tipo_documento(texto)
-    info["nombre"] = _detectar_nombre(texto) or _nombre_desde_archivo(nombre_archivo)
+    info["dni"] = _dni_desde_etiqueta(plano) or _dni_generico(texto)
+    info["nombre"] = (_nombre_etiquetado(plano)
+                      or _detectar_nombre(texto)
+                      or _nombre_desde_archivo(nombre_archivo))
 
     if not (info["nombre"] or info["dni"] or info["email"]):
         return None

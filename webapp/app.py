@@ -696,6 +696,7 @@ def herramienta_organizar():
                 carpeta = (request.form.get("carpeta_" + p["clave"]) or p["carpeta"]).strip()
                 carpeta = carpeta or "SIN_IDENTIFICAR"
                 carpeta = re.sub(r'[\\/:*?"<>|]+', "_", carpeta)
+                p["carpeta"] = carpeta
                 carpeta_p = os.path.join(salida, carpeta)
                 os.makedirs(carpeta_p, exist_ok=True)
                 for doc in p["docs"]:
@@ -709,11 +710,12 @@ def herramienta_organizar():
                         destino = f"{base}_{k}{e2}"
                         k += 1
                     shutil.copy2(origen, destino)
-            zip_ruta = zip_de_carpeta(salida, "organizado_por_persona.zip")
+            zip_de_carpeta(salida, "organizado_por_persona.zip")
             db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "organizar",
                                    f"{plan['total']} documentos, {len(plan['personas'])} personas")
-            return send_file(zip_ruta, as_attachment=True,
-                             download_name="organizado_por_persona.zip")
+            return render_template("organizar.html", resumen=plan["personas"],
+                                   total=plan["total"], n_personas=len(plan["personas"]),
+                                   fase="listo", zip_listo=True)
 
     return render_template("organizar.html", resumen=None)
 
@@ -734,9 +736,11 @@ def herramienta_separar():
                 return redirect(url_for("herramienta_separar"))
             ruta = os.path.join(d, "grande.pdf")
             archivo.save(ruta)
-            progreso = []
             paginas = intel.analizar_pdf_paginas(ruta)
+            with open(os.path.join(d, "separar_paginas.json"), "w", encoding="utf-8") as f:
+                json.dump(paginas, f, ensure_ascii=False)
             grupos = intel.agrupar_paginas(paginas)
+            progreso = []
             for i, g in enumerate(grupos, 1):
                 rango = (f"pág {g['paginas'][0]}" if len(g["paginas"]) == 1
                          else f"pág {g['paginas'][0]}-{g['paginas'][-1]}")
@@ -746,17 +750,25 @@ def herramienta_separar():
         elif accion == "separar":
             modo = request.form.get("modo", "upper")
             ruta = os.path.join(d, "grande.pdf")
-            if not os.path.isfile(ruta):
+            paginas_path = os.path.join(d, "separar_paginas.json")
+            if not os.path.isfile(ruta) or not os.path.isfile(paginas_path):
                 flash("Primero analiza un PDF.", "error")
                 return redirect(url_for("herramienta_separar"))
+            with open(paginas_path, "r", encoding="utf-8") as f:
+                paginas = json.load(f)
+            grupos = intel.agrupar_paginas(paginas)
             destino = os.path.join(d, "separados")
             shutil.rmtree(destino, ignore_errors=True)
-            paginas = intel.analizar_pdf_paginas(ruta)
-            grupos = intel.agrupar_paginas(paginas)
             creados = intel.separar_pdf(ruta, destino, grupos, modo=modo)
-            zip_ruta = zip_de_carpeta(destino, "separados.zip")
+            zip_de_carpeta(destino, "separados.zip")
             db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "separar_pdf", f"{len(creados)} documentos")
-            return send_file(zip_ruta, as_attachment=True, download_name="documentos_separados.zip")
+            progreso = []
+            for i, g in enumerate(grupos, 1):
+                rango = (f"pág {g['paginas'][0]}" if len(g["paginas"]) == 1
+                         else f"pág {g['paginas'][0]}-{g['paginas'][-1]}")
+                progreso.append({"n": i, "rango": rango, "tipo": g["tipo"] or "SIN IDENTIFICAR", "conf": g["conf"] or "-"})
+            return render_template("separar.html", paginas=paginas, grupos=progreso,
+                                   total_pag=len(paginas), analizado=True, zip_listo=True)
     return render_template("separar.html", paginas=None, grupos=None, analizado=False)
 
 
@@ -764,7 +776,7 @@ def herramienta_separar():
 @login_required
 def descargar(nombre):
     permitidos = {session.get("zip_clasificar"), "documentos_clasificados.zip",
-                  "organizado_por_persona.zip"}
+                  "organizado_por_persona.zip", "separados.zip"}
     if nombre not in permitidos:
         abort(404)
     ruta = os.path.join(trabajo_dir(), nombre)

@@ -2,8 +2,8 @@
 {% block titulo %}Organizar por persona{% endblock %}
 {% block cuerpo %}
 <h1>Organizar carpeta por persona</h1>
-<p class="sub">Sube un ZIP con documentos de varias personas. El sistema detecta a cada
-   persona, crea su carpeta y clasifica cada documento (001…007).</p>
+<p class="sub">Sube una carpeta o un ZIP con documentos de varias personas. El sistema
+   detecta a cada persona, crea su carpeta y clasifica cada documento (001…007).</p>
 
 {% if not resumen %}
 <form method="post" enctype="multipart/form-data" id="form-organizar"
@@ -49,6 +49,34 @@
   }, true);
 })();
 </script>
+
+{% elif fase == 'listo' %}
+<div class="tarjeta">
+  <h2>¡Listo!</h2>
+  <p>{{ total }} documentos organizados en <b>{{ n_personas }}</b> carpetas.</p>
+  <a class="boton" href="{{ url_for('descargar', nombre='organizado_por_persona.zip') }}">Descargar ZIP</a>
+  <p class="nota">Cada persona quedó en su propia carpeta con los documentos clasificados.</p>
+  <p class="nota"><a href="{{ url_for('herramienta_organizar') }}">Organizar otra carpeta</a></p>
+</div>
+
+{% for p in resumen %}
+<div class="tarjeta">
+  <h2>{{ p.carpeta }}</h2>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Archivo original</th><th>Tipo</th><th>Confianza</th><th>Quedó como</th></tr>
+    {% for d in p.docs %}
+    <tr>
+      <td>{{ d.original }}</td>
+      <td>{% if d.ok %}<span class="pill">{{ d.tipo }}</span>{% else %}<span class="pill rojo">{{ d.tipo }}</span>{% endif %}</td>
+      <td>{{ d.conf }}</td>
+      <td><b>{{ d.nuevo }}</b></td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endfor %}
 
 {% else %}
 <div class="tarjeta">
