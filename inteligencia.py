@@ -267,6 +267,111 @@ def _ocr_paginas(pares, dpi=200, al_completar=None):
 
 
 # ----------------------------------------------------------------------
+# Refuerzo de OCR para paginas dificiles (fotos borrosas o con poco contraste)
+# ----------------------------------------------------------------------
+CONF_RANGO = {"": 0, "BAJA": 1, "MEDIA": 2, "ALTA": 3}
+MAX_REFUERZO = 25
+
+
+def _ocr_alternativo(tmp):
+    """OCR de refuerzo: devuelve una lista de lecturas alternativas.
+
+    Realza el contraste con Pillow (escala de grises) y prueba el modo
+    automatico y una version binarizada. Cada variante se evalua por separado
+    para no inventar coincidencias al mezclar textos.
+    """
+    variantes = []
+    try:
+        from PIL import Image, ImageOps
+        im = Image.open(tmp).convert("L")
+        realzada = ImageOps.autocontrast(im)
+        g = tmp + ".g.png"
+        realzada.save(g)
+        variantes.append((g, "3"))
+        b = tmp + ".b.png"
+        realzada.point(lambda v: 255 if v > 160 else 0).save(b)
+        variantes.append((b, "6"))
+    except Exception:  # noqa: BLE001 - si Pillow falla, se sigue sin realce
+        variantes = []
+
+    lecturas = []
+    for ruta_v, psm in variantes:
+        try:
+            t = _ocr_archivo(ruta_v, psm=psm)
+            if t.strip():
+                lecturas.append(t)
+        finally:
+            try:
+                os.remove(ruta_v)
+            except OSError:
+                pass
+    if not lecturas:
+        t = _ocr_archivo(tmp, psm="3")
+        if t.strip():
+            lecturas.append(t)
+    return lecturas
+
+
+def _reforzar_ocr(ruta, paginas, edad, maximo=MAX_REFUERZO):
+    """Segunda pasada de OCR solo para paginas dudosas.
+
+    Las fotos borrosas que Tesseract no lee a la primera (paginas sin
+    identificar o de confianza BAJA) se reprocesan a mayor resolucion con
+    realce de contraste y se reclasifican con cada lectura por separado. Solo
+    cuesta tiempo en esas paginas, asi que los escaneos limpios no pierden
+    velocidad. Solo se acepta el resultado si queda MEDIA o ALTA, para no
+    inventar un tipo equivocado en una foto ilegible.
+    """
+    dudosas = [i for i, p in enumerate(paginas)
+               if (not p.get("num")) or p.get("conf") == "BAJA"]
+    if not dudosas:
+        return 0
+    dudosas = dudosas[:maximo]
+    try:
+        doc = pymupdf.open(ruta)
+    except Exception:  # noqa: BLE001
+        return 0
+    mejoras = 0
+    try:
+        for i in dudosas:
+            tmp = _render_pagina(doc[i], dpi=300, indice=i)
+            try:
+                lecturas = _ocr_alternativo(tmp)
+            finally:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            actual = CONF_RANGO.get(paginas[i].get("conf", ""), 0)
+            mejor = None
+            for t in lecturas:
+                r = clasificar(t, edad)
+                if not r:
+                    continue
+                clave = (CONF_RANGO.get(r[2], 0), len(r[3]))
+                if mejor is None or clave > mejor[0]:
+                    mejor = (clave, r, t)
+            if mejor is None:
+                continue
+            clave, r, texto = mejor
+            if r[2] == "BAJA":
+                continue
+            if paginas[i].get("num") and clave <= (actual, 0):
+                continue
+            paginas[i]["texto"] = texto
+            paginas[i]["num"] = r[0]
+            paginas[i]["tipo"] = f"{r[0]}_{r[1]}"
+            paginas[i]["conf"] = r[2]
+            primera = next((ln.strip() for ln in texto.splitlines()
+                            if ln.strip()), "")
+            paginas[i]["inicio"] = primera[:70]
+            mejoras += 1
+    finally:
+        doc.close()
+    return mejoras
+
+
+# ----------------------------------------------------------------------
 # Lectura de archivos
 # ----------------------------------------------------------------------
 def texto_de_pdf(ruta, max_paginas=2, dpi=200):
@@ -495,15 +600,19 @@ def analizar_pdf_paginas(ruta, max_paginas=None, dpi=200, progreso=None, on_pagi
     for i, t in enumerate(textos):
         res = clasificar(t, edad)
         primera = next((ln.strip() for ln in t.splitlines() if ln.strip()), "")
-        info = {
+        out.append({
             "pagina": i + 1,
             "texto": t,
             "num": res[0] if res else "",
             "tipo": f"{res[0]}_{res[1]}" if res else "",
             "conf": res[2] if res else "",
             "inicio": primera[:70],
-        }
-        out.append(info)
+        })
+
+    # Fotos borrosas: reintenta el OCR en las paginas que quedaron dudosas.
+    _reforzar_ocr(ruta, out, edad)
+
+    for info in out:
         if on_pagina:
             on_pagina(info)
     marcar_tutor(out, edad)
