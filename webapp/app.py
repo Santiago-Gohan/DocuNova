@@ -30,6 +30,7 @@ sys.path.insert(0, BASE)
 import db
 import inteligencia as intel
 import nomenclatura as nomen
+import trabajos
 
 # --- Entorno: en produccion se desactiva el acceso local a "Mi PC" ---
 PRODUCCION = os.environ.get("ENTORNO", "").strip().lower() in ("produccion", "production", "prod")
@@ -151,8 +152,9 @@ def admin_required(f):
     return envoltura
 
 
-def zip_de_carpeta(carpeta, nombre_zip):
-    ruta_zip = os.path.join(trabajo_dir(), nombre_zip)
+def zip_de_carpeta(carpeta, nombre_zip, base=None):
+    """Comprime `carpeta`. `base` evita usar la sesion dentro de hilos."""
+    ruta_zip = os.path.join(base or trabajo_dir(), nombre_zip)
     with zipfile.ZipFile(ruta_zip, "w", zipfile.ZIP_DEFLATED) as z:
         for raiz, _dirs, archivos in os.walk(carpeta):
             for a in archivos:
@@ -162,13 +164,56 @@ def zip_de_carpeta(carpeta, nombre_zip):
     return ruta_zip
 
 
-def zip_de_archivos(lista_rutas, nombre_zip):
-    ruta_zip = os.path.join(trabajo_dir(), nombre_zip)
+def zip_de_archivos(lista_rutas, nombre_zip, base=None):
+    ruta_zip = os.path.join(base or trabajo_dir(), nombre_zip)
     with zipfile.ZipFile(ruta_zip, "w", zipfile.ZIP_DEFLATED) as z:
         for r in lista_rutas:
             if os.path.isfile(r):
                 z.write(r, os.path.basename(r))
     return ruta_zip
+
+
+def leer_json(ruta, defecto=None):
+    try:
+        with open(ruta, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001 - archivo ausente o a medias
+        return defecto
+
+
+def escribir_json(ruta, datos):
+    """Escritura atomica: la pagina de resultados nunca lee un archivo a medias."""
+    tmp = ruta + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(datos, f, ensure_ascii=False)
+    os.replace(tmp, ruta)
+
+
+def borrar_de(d, *nombres):
+    for n in nombres:
+        try:
+            os.remove(os.path.join(d, n))
+        except OSError:
+            pass
+
+
+def resumen_grupos(grupos):
+    filas = []
+    for i, g in enumerate(grupos, 1):
+        rango = (f"pág {g['paginas'][0]}" if len(g["paginas"]) == 1
+                 else f"pág {g['paginas'][0]}-{g['paginas'][-1]}")
+        filas.append({"n": i, "rango": rango,
+                      "tipo": g["tipo"] or "SIN IDENTIFICAR",
+                      "conf": g["conf"] or "-"})
+    return filas
+
+
+def es_ajax():
+    return request.headers.get("X-Trabajo") == "1"
+
+
+def error_ajax(mensaje):
+    return jsonify({"error": mensaje}), 400
 
 
 def limpiar_trabajo():
@@ -498,54 +543,90 @@ def herramienta_normalizar():
 # ----------------------------------------------------------------------
 # Herramienta: clasificar (subir archivos -> resultados + ZIP renombrado)
 # ----------------------------------------------------------------------
+@app.route("/trabajo/<tid>")
+@login_required
+def estado_trabajo(tid):
+    """Consulta de progreso: cada llamada dura milisegundos (nunca la corta Render)."""
+    t = trabajos.obtener(tid, uid=session.get("uid"))
+    if not t:
+        abort(404)
+    return jsonify({"id": t["id"], "estado": t["estado"], "pct": t["pct"],
+                    "fase": t["fase"], "error": t["error"]})
+
+
+def _procesar_clasificacion(progreso, d, entrada, subidos, modo, uid, usuario):
+    """Hilo: clasifica cada archivo, arma el ZIP y guarda los resultados."""
+    total = len(subidos)
+    resultados = []
+    salidas = []
+    for i, (ruta, original) in enumerate(subidos, 1):
+        nombre = os.path.basename(ruta)
+        progreso(int((i - 1) * 90 / total),
+                 f"Leyendo {i} de {total}: {original}")
+        try:
+            _texto, res = intel.clasificar_archivo(ruta)
+        except Exception:  # noqa: BLE001 - archivo ilegible, va sin clasificar
+            res = None
+        ext = os.path.splitext(nombre)[1]
+        if res:
+            num, nom, conf, _ = res
+            nuevo = nomen.nombre_documento(num, nom, modo, ext)
+            resultados.append({"archivo": original, "tipo": f"{num}_{nom}",
+                               "conf": conf, "nuevo": nuevo, "ok": True})
+        else:
+            nuevo = nombre
+            resultados.append({"archivo": original, "tipo": "no identificado",
+                               "conf": "-", "nuevo": nombre, "ok": False})
+        destino = os.path.join(entrada, nuevo)
+        base, e2 = os.path.splitext(destino)
+        k = 2
+        while os.path.exists(destino):
+            destino = f"{base}_{k}{e2}"
+            k += 1
+        os.replace(ruta, destino)
+        salidas.append(destino)
+    progreso(94, "Comprimiendo el ZIP...")
+    zip_de_archivos(salidas, "documentos_clasificados.zip", base=d)
+    escribir_json(os.path.join(d, "clasificar_resultados.json"), resultados)
+    try:
+        db.registrar_actividad(uid, usuario, "clasificar", f"{total} archivos")
+    except Exception:  # noqa: BLE001
+        pass
+    return {"total": total}
+
+
 @app.route("/herramientas/clasificar", methods=["GET", "POST"])
 @login_required
 def herramienta_clasificar():
+    d = trabajo_dir()
     if request.method == "POST":
-        archivos = request.files.getlist("documentos")
+        archivos = [a for a in request.files.getlist("documentos") if a and a.filename]
         modo = request.form.get("modo", "upper")
-        archivos = [a for a in archivos if a and a.filename]
         if not archivos:
+            if es_ajax():
+                return error_ajax("Sube uno o varios documentos (PDF o imágenes).")
             flash("Sube uno o varios documentos (PDF o imágenes).", "error")
             return redirect(url_for("herramienta_clasificar"))
-        d = trabajo_dir()
         entrada = os.path.join(d, "clasificar")
         shutil.rmtree(entrada, ignore_errors=True)
         os.makedirs(entrada, exist_ok=True)
-        resultados = []
-        salidas = []
+        subidos = []
         for a in archivos:
-            nombre = secure_filename(a.filename)
-            ruta = os.path.join(entrada, nombre)
+            ruta = os.path.join(entrada, secure_filename(a.filename))
             a.save(ruta)
-            try:
-                texto, res = intel.clasificar_archivo(ruta)
-            except Exception as e:
-                res = None
-            ext = os.path.splitext(nombre)[1]
-            if res:
-                num, nom, conf, _ = res
-                nuevo = nomen.nombre_documento(num, nom, modo, ext)
-                resultados.append({"archivo": a.filename, "tipo": f"{num}_{nom}", "conf": conf,
-                                   "nuevo": nuevo, "ok": True})
-            else:
-                nuevo = nombre
-                resultados.append({"archivo": a.filename, "tipo": "no identificado",
-                                   "conf": "-", "nuevo": nombre, "ok": False})
-            destino = os.path.join(entrada, nuevo)
-            base, e2 = os.path.splitext(destino)
-            k = 2
-            while os.path.exists(destino):
-                destino = f"{base}_{k}{e2}"
-                k += 1
-            os.replace(ruta, destino)
-            salidas.append(destino)
-        zip_ruta = zip_de_archivos(salidas, "documentos_clasificados.zip")
-        db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "clasificar", f"{len(archivos)} archivos")
-        # guarda la ruta del zip para descarga posterior
-        session["zip_clasificar"] = os.path.basename(zip_ruta)
-        return render_template("clasificar.html", resultados=resultados, zip_listo=True)
-    return render_template("clasificar.html", resultados=None, zip_listo=False)
+            subidos.append((ruta, a.filename))
+        borrar_de(d, "clasificar_resultados.json", "documentos_clasificados.zip")
+        tid = trabajos.crear(session["uid"], "Clasificando documentos",
+                             _procesar_clasificacion, d, entrada, subidos, modo,
+                             session["uid"], usuario_actual()["usuario"])
+        return jsonify({"trabajo": tid, "total": len(subidos)})
+
+    if request.args.get("nuevo"):
+        borrar_de(d, "clasificar_resultados.json", "documentos_clasificados.zip")
+    resultados = leer_json(os.path.join(d, "clasificar_resultados.json"))
+    zip_listo = os.path.isfile(os.path.join(d, "documentos_clasificados.zip"))
+    return render_template("clasificar.html", resultados=resultados,
+                           zip_listo=zip_listo and bool(resultados))
 
 
 # ----------------------------------------------------------------------
@@ -580,12 +661,109 @@ def _carpeta_persona(info, modo):
     return "SIN_IDENTIFICAR"
 
 
+def _procesar_organizacion(progreso, d, entrada, modo, uid, usuario):
+    """Hilo: lee y clasifica cada documento para armar el plan de carpetas."""
+    subidos = []
+    for raiz, _dirs, archivos in os.walk(entrada):
+        for a in archivos:
+            if os.path.splitext(a)[1].lower() in EXT_DOC:
+                subidos.append(os.path.join(raiz, a))
+    if not subidos:
+        raise ValueError("No se encontraron documentos PDF o imágenes "
+                         "dentro de la carpeta o el ZIP.")
+    personas = {}
+    orden = []
+    total = 0
+    n_total = len(subidos)
+    for i, ruta in enumerate(subidos, 1):
+        a = os.path.basename(ruta)
+        rel = os.path.relpath(ruta, entrada)
+        sub = os.path.dirname(rel)
+        ext = os.path.splitext(a)[1].lower()
+        progreso(int((i - 1) * 95 / n_total),
+                 f"Leyendo {i} de {n_total}: {a}")
+        try:
+            texto, res = intel.clasificar_archivo(ruta)
+        except Exception:  # noqa: BLE001
+            texto, res = "", None
+        info = intel.detectar_persona(texto, a)
+        # pista: si la carpeta ya venia con una subcarpeta por persona
+        if not info and sub and sub != ".":
+            cand = os.path.basename(sub).replace("_", " ").strip()
+            if cand:
+                info = {"nombre": cand}
+        clave = intel.clave_persona(info)
+        if clave not in personas:
+            personas[clave] = {"clave": clave,
+                               "carpeta": _carpeta_persona(info, modo),
+                               "info": info or {}, "docs": []}
+            orden.append(clave)
+        if res:
+            num, nom, conf, _ = res
+            nuevo = nomen.nombre_documento(num, nom, modo, ext)
+            tipo = f"{num}_{nom}"
+        else:
+            nuevo = nomen.formatear(a, modo)
+            tipo = "no identificado"
+            conf = "-"
+        personas[clave]["docs"].append({"rel": rel, "original": a,
+                                        "nuevo": nuevo, "tipo": tipo,
+                                        "conf": conf, "ok": bool(res)})
+        total += 1
+
+    plan = {"modo": modo, "total": total,
+            "personas": [personas[k] for k in orden]}
+    escribir_json(os.path.join(d, "organizar_plan.json"), plan)
+    borrar_de(d, "organizar_listo.json", "organizado_por_persona.zip")
+    try:
+        db.registrar_actividad(uid, usuario, "organizar",
+                               f"{total} documentos, {len(orden)} personas")
+    except Exception:  # noqa: BLE001
+        pass
+    return {"total": total, "personas": len(orden)}
+
+
+def _procesar_generacion(progreso, d, plan, uid, usuario):
+    """Hilo: crea una carpeta por persona y comprime el resultado."""
+    entrada = os.path.join(d, "organizar_entrada")
+    salida = os.path.join(d, "organizar_salida")
+    shutil.rmtree(salida, ignore_errors=True)
+    os.makedirs(salida, exist_ok=True)
+    n_p = max(1, len(plan["personas"]))
+    for i, p in enumerate(plan["personas"], 1):
+        progreso(int((i - 1) * 85 / n_p),
+                 f"Creando carpeta {i} de {n_p}: {p['carpeta']}")
+        carpeta_p = os.path.join(salida, p["carpeta"])
+        os.makedirs(carpeta_p, exist_ok=True)
+        for doc in p["docs"]:
+            origen = os.path.join(entrada, doc["rel"])
+            if not os.path.isfile(origen):
+                continue
+            destino = os.path.join(carpeta_p, doc["nuevo"])
+            base, e2 = os.path.splitext(destino)
+            k = 2
+            while os.path.exists(destino):
+                destino = f"{base}_{k}{e2}"
+                k += 1
+            shutil.copy2(origen, destino)
+    progreso(90, "Comprimiendo el ZIP...")
+    zip_de_carpeta(salida, "organizado_por_persona.zip", base=d)
+    escribir_json(os.path.join(d, "organizar_listo.json"), plan)
+    try:
+        db.registrar_actividad(uid, usuario, "organizar",
+                               f"{plan['total']} documentos, "
+                               f"{len(plan['personas'])} personas")
+    except Exception:  # noqa: BLE001
+        pass
+    return {"total": plan["total"], "personas": len(plan["personas"])}
+
+
 @app.route("/herramientas/organizar", methods=["GET", "POST"])
 @login_required
 def herramienta_organizar():
+    d = trabajo_dir()
     if request.method == "POST":
         accion = request.form.get("accion", "analizar")
-        d = trabajo_dir()
 
         # ---------- FASE 1: analizar el ZIP o la carpeta y detectar personas ----------
         if accion == "analizar":
@@ -599,6 +777,8 @@ def herramienta_organizar():
 
             if archivo and archivo.filename:
                 if not archivo.filename.lower().endswith(".zip"):
+                    if es_ajax():
+                        return error_ajax("El archivo debe ser un ZIP (.zip).")
                     flash("El archivo debe ser un ZIP (.zip).", "error")
                     return redirect(url_for("herramienta_organizar"))
                 zip_in = os.path.join(d, "organizar.zip")
@@ -607,6 +787,8 @@ def herramienta_organizar():
                     with zipfile.ZipFile(zip_in) as z:
                         z.extractall(entrada)
                 except zipfile.BadZipFile:
+                    if es_ajax():
+                        return error_ajax("El archivo no es un ZIP válido.")
                     flash("El archivo no es un ZIP válido.", "error")
                     return redirect(url_for("herramienta_organizar"))
             elif docs:
@@ -624,158 +806,159 @@ def herramienta_organizar():
                     os.makedirs(os.path.dirname(destino), exist_ok=True)
                     f.save(destino)
             else:
+                if es_ajax():
+                    return error_ajax("Elige una carpeta o sube un ZIP.")
                 flash("Elige una carpeta o sube un ZIP.", "error")
                 return redirect(url_for("herramienta_organizar"))
 
-            personas = {}
-            orden = []
-            total = 0
-            for raiz, _dirs, archivos in os.walk(entrada):
-                for a in archivos:
-                    ext = os.path.splitext(a)[1].lower()
-                    if ext not in EXT_DOC:
-                        continue
-                    ruta = os.path.join(raiz, a)
-                    rel = os.path.relpath(ruta, entrada)
-                    sub = os.path.dirname(rel)
-                    try:
-                        texto, res = intel.clasificar_archivo(ruta)
-                    except Exception:
-                        texto, res = "", None
-                    info = intel.detectar_persona(texto, a)
-                    # pista: si el ZIP ya venía con una subcarpeta por persona
-                    if not info and sub and sub != ".":
-                        cand = os.path.basename(sub).replace("_", " ").strip()
-                        if cand:
-                            info = {"nombre": cand}
-                    clave = intel.clave_persona(info)
-                    if clave not in personas:
-                        personas[clave] = {"clave": clave,
-                                           "carpeta": _carpeta_persona(info, modo),
-                                           "info": info or {}, "docs": []}
-                        orden.append(clave)
-                    if res:
-                        num, nom, conf, _ = res
-                        nuevo = nomen.nombre_documento(num, nom, modo, ext)
-                        tipo = f"{num}_{nom}"
-                    else:
-                        nuevo = nomen.formatear(a, modo)
-                        tipo = "no identificado"
-                        conf = "-"
-                    personas[clave]["docs"].append({
-                        "rel": rel, "original": a, "nuevo": nuevo,
-                        "tipo": tipo, "conf": conf, "ok": bool(res),
-                    })
-                    total += 1
-
-            if total == 0:
-                flash("No se encontraron documentos PDF o imágenes dentro del ZIP.", "error")
-                return redirect(url_for("herramienta_organizar"))
-
-            plan = {"modo": modo, "total": total,
-                    "personas": [personas[k] for k in orden]}
-            with open(os.path.join(d, "organizar_plan.json"), "w", encoding="utf-8") as f:
-                json.dump(plan, f, ensure_ascii=False)
-
-            return render_template("organizar.html", resumen=plan["personas"],
-                                   total=total, n_personas=len(orden), fase="revision")
+            borrar_de(d, "organizar_plan.json", "organizar_listo.json",
+                      "organizado_por_persona.zip")
+            tid = trabajos.crear(session["uid"], "Analizando documentos",
+                                 _procesar_organizacion, d, entrada, modo,
+                                 session["uid"], usuario_actual()["usuario"])
+            return jsonify({"trabajo": tid})
 
         # ---------- FASE 2: generar el ZIP con los nombres editados ----------
         if accion == "generar":
-            plan_path = os.path.join(d, "organizar_plan.json")
-            if not os.path.isfile(plan_path):
-                flash("Primero sube un ZIP para analizarlo.", "error")
+            plan = leer_json(os.path.join(d, "organizar_plan.json"))
+            if not plan:
+                if es_ajax():
+                    return error_ajax("Primero sube una carpeta o un ZIP para analizarlo.")
+                flash("Primero sube una carpeta o un ZIP para analizarlo.", "error")
                 return redirect(url_for("herramienta_organizar"))
-            with open(plan_path, "r", encoding="utf-8") as f:
-                plan = json.load(f)
-            entrada = os.path.join(d, "organizar_entrada")
-            salida = os.path.join(d, "organizar_salida")
-            shutil.rmtree(salida, ignore_errors=True)
-            os.makedirs(salida, exist_ok=True)
             for p in plan["personas"]:
                 carpeta = (request.form.get("carpeta_" + p["clave"]) or p["carpeta"]).strip()
-                carpeta = carpeta or "SIN_IDENTIFICAR"
-                carpeta = re.sub(r'[\\/:*?"<>|]+', "_", carpeta)
-                p["carpeta"] = carpeta
-                carpeta_p = os.path.join(salida, carpeta)
-                os.makedirs(carpeta_p, exist_ok=True)
-                for doc in p["docs"]:
-                    origen = os.path.join(entrada, doc["rel"])
-                    if not os.path.isfile(origen):
-                        continue
-                    destino = os.path.join(carpeta_p, doc["nuevo"])
-                    base, e2 = os.path.splitext(destino)
-                    k = 2
-                    while os.path.exists(destino):
-                        destino = f"{base}_{k}{e2}"
-                        k += 1
-                    shutil.copy2(origen, destino)
-            zip_de_carpeta(salida, "organizado_por_persona.zip")
-            db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "organizar",
-                                   f"{plan['total']} documentos, {len(plan['personas'])} personas")
-            return render_template("organizar.html", resumen=plan["personas"],
-                                   total=plan["total"], n_personas=len(plan["personas"]),
-                                   fase="listo", zip_listo=True)
+                p["carpeta"] = re.sub(r'[\\/:*?"<>|]+', "_", carpeta or "SIN_IDENTIFICAR")
+            tid = trabajos.crear(session["uid"], "Generando el ZIP",
+                                 _procesar_generacion, d, plan,
+                                 session["uid"], usuario_actual()["usuario"])
+            return jsonify({"trabajo": tid})
 
+    # ---------- GET: el estado se reconstruye desde los archivos en disco ----------
+    if request.args.get("nuevo"):
+        borrar_de(d, "organizar_plan.json", "organizar_listo.json",
+                  "organizado_por_persona.zip")
+    listo = leer_json(os.path.join(d, "organizar_listo.json"))
+    if listo and os.path.isfile(os.path.join(d, "organizado_por_persona.zip")):
+        return render_template("organizar.html", resumen=listo["personas"],
+                               total=listo["total"],
+                               n_personas=len(listo["personas"]),
+                               fase="listo", zip_listo=True)
+    plan = leer_json(os.path.join(d, "organizar_plan.json"))
+    if plan:
+        return render_template("organizar.html", resumen=plan["personas"],
+                               total=plan["total"],
+                               n_personas=len(plan["personas"]), fase="revision")
     return render_template("organizar.html", resumen=None)
 
 
 # ----------------------------------------------------------------------
 # Herramienta: separar PDF grande
 # ----------------------------------------------------------------------
+def _procesar_analisis_pdf(progreso, d, uid, usuario):
+    """Hilo: analiza el PDF página por página (OCR solo si no tiene texto)."""
+    ruta = os.path.join(d, "grande.pdf")
+    if not os.path.isfile(ruta):
+        raise ValueError("El PDF ya no está disponible. Súbelo de nuevo.")
+
+    def al_avanzar(i, total):
+        progreso(int(i * 95 / total) if total else 95,
+                 f"Analizando página {i} de {total}")
+
+    paginas = intel.analizar_pdf_paginas(ruta, progreso=al_avanzar)
+    if not paginas:
+        raise ValueError("No se pudieron leer las páginas del PDF.")
+    progreso(97, "Guardando el análisis...")
+    escribir_json(os.path.join(d, "separar_paginas.json"), paginas)
+    borrar_de(d, "separados.zip")
+    grupos = intel.agrupar_paginas(paginas)
+    try:
+        db.registrar_actividad(uid, usuario, "separar_analizar",
+                               f"{len(paginas)} páginas")
+    except Exception:  # noqa: BLE001
+        pass
+    return {"paginas": len(paginas), "grupos": len(grupos)}
+
+
+def _procesar_cortes(progreso, d, modo, uid, usuario):
+    """Hilo: extrae cada grupo de páginas en su propio PDF y arma el ZIP."""
+    ruta = os.path.join(d, "grande.pdf")
+    paginas = leer_json(os.path.join(d, "separar_paginas.json"))
+    if not os.path.isfile(ruta) or not paginas:
+        raise ValueError("Primero analiza un PDF.")
+    grupos = intel.agrupar_paginas(paginas)
+    destino = os.path.join(d, "separados")
+    shutil.rmtree(destino, ignore_errors=True)
+
+    def al_crear(i, total):
+        progreso(int(i * 88 / total) if total else 88,
+                 f"Extrayendo documento {i} de {total}")
+
+    creados = intel.separar_pdf(ruta, destino, grupos, modo=modo,
+                                progreso=al_crear)
+    progreso(92, "Comprimiendo el ZIP...")
+    zip_de_carpeta(destino, "separados.zip", base=d)
+    try:
+        db.registrar_actividad(uid, usuario, "separar_pdf",
+                               f"{len(creados)} documentos")
+    except Exception:  # noqa: BLE001
+        pass
+    return {"documentos": len(creados)}
+
+
 @app.route("/herramientas/separar", methods=["GET", "POST"])
 @login_required
 def herramienta_separar():
+    d = trabajo_dir()
     if request.method == "POST":
         accion = request.form.get("accion", "analizar")
-        d = trabajo_dir()
+
         if accion == "analizar":
             archivo = request.files.get("pdf")
             if not archivo or not archivo.filename.lower().endswith(".pdf"):
+                if es_ajax():
+                    return error_ajax("Sube un archivo PDF.")
                 flash("Sube un archivo PDF.", "error")
                 return redirect(url_for("herramienta_separar"))
-            ruta = os.path.join(d, "grande.pdf")
-            archivo.save(ruta)
-            paginas = intel.analizar_pdf_paginas(ruta)
-            with open(os.path.join(d, "separar_paginas.json"), "w", encoding="utf-8") as f:
-                json.dump(paginas, f, ensure_ascii=False)
-            grupos = intel.agrupar_paginas(paginas)
-            progreso = []
-            for i, g in enumerate(grupos, 1):
-                rango = (f"pág {g['paginas'][0]}" if len(g["paginas"]) == 1
-                         else f"pág {g['paginas'][0]}-{g['paginas'][-1]}")
-                progreso.append({"n": i, "rango": rango, "tipo": g["tipo"] or "SIN IDENTIFICAR", "conf": g["conf"] or "-"})
-            return render_template("separar.html", paginas=paginas, grupos=progreso,
-                                   total_pag=len(paginas), analizado=True)
+            borrar_de(d, "separar_paginas.json", "separados.zip")
+            archivo.save(os.path.join(d, "grande.pdf"))
+            tid = trabajos.crear(session["uid"], "Analizando el PDF",
+                                 _procesar_analisis_pdf, d, session["uid"],
+                                 usuario_actual()["usuario"])
+            return jsonify({"trabajo": tid})
+
         elif accion == "separar":
             modo = request.form.get("modo", "upper")
-            ruta = os.path.join(d, "grande.pdf")
-            paginas_path = os.path.join(d, "separar_paginas.json")
-            if not os.path.isfile(ruta) or not os.path.isfile(paginas_path):
+            if not (os.path.isfile(os.path.join(d, "grande.pdf")) and
+                    os.path.isfile(os.path.join(d, "separar_paginas.json"))):
+                if es_ajax():
+                    return error_ajax("Primero analiza un PDF.")
                 flash("Primero analiza un PDF.", "error")
                 return redirect(url_for("herramienta_separar"))
-            with open(paginas_path, "r", encoding="utf-8") as f:
-                paginas = json.load(f)
-            grupos = intel.agrupar_paginas(paginas)
-            destino = os.path.join(d, "separados")
-            shutil.rmtree(destino, ignore_errors=True)
-            creados = intel.separar_pdf(ruta, destino, grupos, modo=modo)
-            zip_de_carpeta(destino, "separados.zip")
-            db.registrar_actividad(session["uid"], usuario_actual()["usuario"], "separar_pdf", f"{len(creados)} documentos")
-            progreso = []
-            for i, g in enumerate(grupos, 1):
-                rango = (f"pág {g['paginas'][0]}" if len(g["paginas"]) == 1
-                         else f"pág {g['paginas'][0]}-{g['paginas'][-1]}")
-                progreso.append({"n": i, "rango": rango, "tipo": g["tipo"] or "SIN IDENTIFICAR", "conf": g["conf"] or "-"})
-            return render_template("separar.html", paginas=paginas, grupos=progreso,
-                                   total_pag=len(paginas), analizado=True, zip_listo=True)
-    return render_template("separar.html", paginas=None, grupos=None, analizado=False)
+            tid = trabajos.crear(session["uid"], "Separando el PDF",
+                                 _procesar_cortes, d, modo, session["uid"],
+                                 usuario_actual()["usuario"])
+            return jsonify({"trabajo": tid})
+
+    # ---------- GET: los resultados se leen de lo que dejó el trabajo ----------
+    if request.args.get("nuevo"):
+        borrar_de(d, "grande.pdf", "separar_paginas.json", "separados.zip")
+    paginas = leer_json(os.path.join(d, "separar_paginas.json"))
+    if paginas:
+        grupos = intel.agrupar_paginas(paginas)
+        return render_template("separar.html", paginas=paginas,
+                               grupos=resumen_grupos(grupos),
+                               total_pag=len(paginas), analizado=True,
+                               zip_listo=os.path.isfile(
+                                   os.path.join(d, "separados.zip")))
+    return render_template("separar.html", paginas=None, grupos=None,
+                           analizado=False, zip_listo=False)
 
 
 @app.route("/descargas/<nombre>")
 @login_required
 def descargar(nombre):
-    permitidos = {session.get("zip_clasificar"), "documentos_clasificados.zip",
+    permitidos = {"documentos_clasificados.zip",
                   "organizado_por_persona.zip", "separados.zip"}
     if nombre not in permitidos:
         abort(404)

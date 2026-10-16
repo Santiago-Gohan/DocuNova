@@ -6,10 +6,11 @@
   <meta name="theme-color" content="#0b1220">
   <meta name="color-scheme" content="dark">
   <title>{% block titulo %}DocuNova{% endblock %} · DocuNova</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='7') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='8') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tour.css', v='9') }}">
 </head>
-  <body class="{% block body_class %}{% endblock %}">
+  <body class="{% block body_class %}{% endblock %}"
+        data-trabajo-base="{{ url_for('estado_trabajo', tid='ID') }}">
   {% set ep = request.endpoint or '' %}
   {% if ep not in ('login', 'registro') %}
   <header class="barra">
@@ -105,8 +106,10 @@
   {% endif %}
 
   <!-- ================================================================
-       Overlay de carga: se muestra al enviar formularios de documentos.
-       El progreso es una estimacion visual (el OCR corre en el servidor).
+       Overlay de carga. Los formularios con data-async envian el archivo
+       y luego consultan /trabajo/<id>: la barra y la fase de abajo son
+       el avance REAL que reporta el servidor. Si algo falla aparece el
+       motivo y un boton de reintento (nunca se queda congelada).
        ================================================================ -->
   <div id="loading-overlay" class="loading-overlay" style="display:none" aria-hidden="true">
     <div class="ki-spinner-container">
@@ -118,9 +121,12 @@
         <div id="progress-bar" class="progress-bar"></div>
       </div>
       <span id="progress-pct" class="progress-pct">0%</span>
+      <p id="progress-fase" class="progress-fase"></p>
+      <p id="loading-error" class="loading-error" role="alert"></p>
+      <button id="loading-retry" class="boton" type="button" style="display:none">Reintentar</button>
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='ui.js', v='2') }}"></script>
 </body>
 </html>

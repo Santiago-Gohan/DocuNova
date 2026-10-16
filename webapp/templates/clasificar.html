@@ -5,6 +5,8 @@
 <p class="sub">Sube uno o varios PDF o imágenes. El sistema detecta el tipo y los renombra.</p>
 
 <form method="post" enctype="multipart/form-data"
+      data-async
+      data-redirect="{{ url_for('herramienta_clasificar') }}"
       data-titulo="Clasificando documentos..."
       data-sub="Leyendo y detectando el tipo de cada archivo (OCR)">
   <div class="tarjeta">
@@ -40,6 +42,7 @@
   {% if zip_listo %}
     <a class="boton" href="{{ url_for('descargar', nombre='documentos_clasificados.zip') }}">Descargar ZIP con los documentos</a>
   {% endif %}
+  <p class="nota"><a href="{{ url_for('herramienta_clasificar', nuevo=1) }}">Limpiar resultados y clasificar otros</a></p>
 </div>
 {% endif %}
 {% endblock %}

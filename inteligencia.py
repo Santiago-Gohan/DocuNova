@@ -171,9 +171,11 @@ def _ocr_archivo(ruta, idioma="spa", psm="6"):
         if d:
             cmd += ["--tessdata-dir", d]
         cmd += ["--psm", psm]
+        # 60 s por pagina: si Tesseract se colga, el trabajo sigue adelante
+        # en lugar de bloquear el proceso completo durante 2 minutos.
         res = subprocess.run(
             cmd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=120)
+            encoding="utf-8", errors="replace", timeout=60)
         return res.stdout or ""
     except Exception:
         return ""
@@ -356,13 +358,16 @@ def agrupar_paginas(paginas):
     return grupos
 
 
-def separar_pdf(ruta, carpeta_salida, grupos, modo="upper", prefijo=None):
+def separar_pdf(ruta, carpeta_salida, grupos, modo="upper", prefijo=None,
+                progreso=None):
     """Crea un PDF por cada grupo. Devuelve la lista de archivos creados."""
     os.makedirs(carpeta_salida, exist_ok=True)
     doc = pymupdf.open(ruta)
     creados = []
     try:
-        for g in grupos:
+        for i, g in enumerate(grupos, 1):
+            if progreso:
+                progreso(i, len(grupos))
             nuevo = pymupdf.open()
             for n in g["paginas"]:
                 nuevo.insert_pdf(doc, from_page=n - 1, to_page=n - 1)

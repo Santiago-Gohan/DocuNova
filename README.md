@@ -46,6 +46,10 @@ SANTIAGO_BARRERA_BARBOSA_CC_1031649321/
   - **Organizar por persona**: detecta personas y crea una carpeta por cada una.
   - **Normalizar** nombres.
 - Tema oscuro, barra de progreso al procesar y **tour guiado** flotante.
+- **Trabajos en segundo plano con progreso real** (`webapp/trabajos.py`): el OCR corre en
+  un hilo aparte y el navegador consulta `/trabajo/<id>`, así el servidor nunca corta la
+  petición por tiempo y la barra muestra el avance real (*"Analizando página 12 de 50"*),
+  con cola de un proceso a la vez y botón de reintento si algo falla.
 
 **App de escritorio** (`organizador.py`)
 - Interfaz Tkinter con 5 pestañas (convertir, crear, normalizar, clasificar, separar PDF).
