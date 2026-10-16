@@ -165,3 +165,33 @@ body.auth-page .tarjeta {
   border-color: rgba(47,67,99,.8);
   box-shadow: 0 10px 40px -10px rgba(0,0,0,.6);
 }
+
+.creditos {
+  max-width: 460px;
+  margin: 22px auto 10px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(214, 224, 240, .85);
+  text-shadow: 0 1px 8px rgba(0,0,0,.7);
+}
+.creditos .marca-pais {
+  display: block;
+  margin-top: 12px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  color: #ffd54a;
+}
+.creditos .corazon {
+  color: #4d94ff;
+  font-style: normal;
+  animation: latido 1.6s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes latido {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.25); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+}
+
